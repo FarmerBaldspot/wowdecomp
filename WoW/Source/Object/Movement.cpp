@@ -1,4 +1,5 @@
 #include "Movement.h"
+#include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -5307,6 +5308,8 @@ void CMovement_C::ExecuteMovement(uint32_t time, uint32_t lastTime) {
             if (flags & 0x40C010FF) {
                 if (flags & MOVEMENTFLAG_ONTRANSPORT) {
                     globals->m_timeCounterMaybe += step;
+                } else if (JeepDrive::Drives(this->m_unit)) {
+                    // Ours: the jeep the player drives is moved by its own physics, not by the game's movement.
                 } else {
                     this->ApplyMovement(cursor, step);
 

@@ -35,6 +35,7 @@
 #include "WoW/Source/Ui/WorldFrame.h"
 #include "WoW/Source/UIUtil/Camera.h"
 #include "WoW/Source/UIUtil/InputControl.h"
+#include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
 
 // STATIC: 0x00AD192C
 uint32_t s_joystick = 0xFFFFFFFF;
@@ -1224,6 +1225,12 @@ void CGInputControl::UpdatePlayer(uint32_t time, int32_t a2) {
 
     if ((mover->m_obj->m_type & TYPEMASK_PLAYER) && static_cast<CGPlayer_C*>(mover)->IsCommentatorUberOrInArena()) {
         CGCommentator::s_Commentator.UpdateCameraVelocity(this->m_flags, a2);
+        return;
+    }
+
+    // Ours: while the player drives the jeep, the keys only set their bits, which its physics read
+    // (JeepDrive_C.cpp); the game starts no movement of its own.
+    if (JeepDrive::Drives(mover)) {
         return;
     }
 

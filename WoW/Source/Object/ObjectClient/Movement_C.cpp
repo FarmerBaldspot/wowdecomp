@@ -1,4 +1,5 @@
 #include "Movement_C.h"
+#include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
 #include "Engine/Source/Os/TimeManager.h"
 #include "Engine/Source/Storm/H/storm.h"
 #include "Engine/Source/Tempest/C44Matrix.h"
@@ -201,6 +202,9 @@ int32_t MovementIdleMoveUnits(const void* data, void* param) {
         if (globals->m_movers.Head()) {
             CMovement_C::MoveUnits(now, globals->m_lastUpdateTime);
         }
+
+        // Ours: the jeep the player drives, moved by its own physics (JeepDrive_C.cpp).
+        JeepDrive::Update(now);
 
         CGUnit_C* mover = static_cast<CGUnit_C*>(ClntObjMgrObjectPtr(CGUnit_C::s_activeMover, TYPEMASK_UNIT, __FILE__, __LINE__));
 

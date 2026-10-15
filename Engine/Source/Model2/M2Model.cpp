@@ -1904,6 +1904,27 @@ void CM2Model::SetBoneProceduralTransform(uint32_t boneId, const C44Matrix& matr
     *bone->m_proceduralTransform = matrix;
 }
 
+// Ours, not the game's (the editor project's jeep; no OFFSET: the game has no such function).
+void CM2Model::SetBoneProceduralTransformAt(uint32_t index, const C44Matrix* matrix) {
+    if (!(this->m_fFlags & 1) || !this->m_bones || index >= this->m_shared->m_data->m_bones.m_count) {
+        return;
+    }
+
+    M2ModelBone* bone = &this->m_bones[index];
+
+    if (!matrix) {
+        bone->m_flags &= ~0x80u;
+        return;
+    }
+
+    if (!bone->m_proceduralTransform) {
+        bone->m_proceduralTransform = static_cast<C44Matrix*>(SIMD::AllocA16(sizeof(C44Matrix), __FILE__, __LINE__));
+    }
+
+    *bone->m_proceduralTransform = *matrix;
+    bone->m_flags |= 0x80u;
+}
+
 // VERIFY: 9445f766 auto
 // OFFSET: 0x008273D0
 int32_t CM2Model::HasAttachment(uint32_t id) {

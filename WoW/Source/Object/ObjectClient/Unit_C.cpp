@@ -1,4 +1,5 @@
 #include "Unit_C.h"
+#include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
 #include <cmath>
 #include <new>
 #include <typeinfo>
@@ -1213,6 +1214,12 @@ int32_t CGUnit_C::Animate(float elapsed) {
         return 1;
     }
 
+    // Ours: the jeep the player drives is drawn as its body lies, tilted, with its wheels (JeepDrive_C.cpp).
+    if (JeepDrive::Animate(this)) {
+        this->UpdateMountTransitionModel();
+        return 1;
+    }
+
     CMovement_C* movement = this->m_movement;
 
     if ((movement->m_flags & 0x2200000) && ((movement->m_flags & 0x3) || (this->unk_0A34 & 0x7))) {
@@ -1275,6 +1282,10 @@ void CGUnit_C::ShouldRender(uint32_t flags, int32_t& culled, int32_t& hidden) {
         if (model && (model->m_fFlags & 0x4000) && !child) {
             hidden = 1;
         } else if (this->m_vehiclePassenger && this->m_vehiclePassenger->m_state && (this->m_vehiclePassenger->m_flags & 0x400)) {
+            hidden = 1;
+        } else if (JeepDrive::HidesRider(this)) {
+            // Ours: the player at the jeep's wheel is not drawn, nor what hangs off them (weapons, their glow),
+            // nor their shadow; the jeep is.
             hidden = 1;
         }
     }

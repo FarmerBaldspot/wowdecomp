@@ -255,6 +255,9 @@ class CM2Model {
     void PickRandomSequenceVariation(uint32_t* variation, uint16_t* sequenceIndex);
     M2SequenceFallback* SequenceFallbackById(M2SequenceFallback* result, uint32_t id);
     void SetBoneProceduralTransform(uint32_t boneId, const C44Matrix& matrix);
+    // Ours (the editor project's jeep): the same for a bone by its place in the model, for bones that are no key
+    // bone, and with the bone's flag that has the transform used (0x80) set; nullptr takes it off again.
+    void SetBoneProceduralTransformAt(uint32_t index, const C44Matrix* matrix);
     void SetBoneSequenceSpeed(uint32_t boneId, float speed);
     void SetBoneSequenceTime(uint32_t boneId, uint32_t time);
     void SetupBoneSequence(uint16_t sequenceIndex, M2SequenceFallback fallback, uint32_t time, float speed, M2ModelBoneSeq* boneSequence);
