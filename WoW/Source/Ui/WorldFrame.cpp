@@ -1,4 +1,5 @@
 #include "WorldFrame.h"
+#include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
 #include "Engine/Source/Base/ConvertUTF.h"
 #include <cstring>
 #include <typeinfo>
@@ -1757,12 +1758,14 @@ void CGWorldFrame::OnWorldRender() {
         CWorldScene::RenderBarriers(this->m_elapsedSec);
         scene->Draw(M2PASS_1);
         CWorldScene::RenderWeather();
+        JeepDrive::RenderDust();     // ours: the jeep's dust (JeepDrive_C.cpp)
         CWorldScene::RenderLiquidPass();
         scene->Draw(M2PASS_2);
     } else {
         scene->Draw(M2PASS_2);
         CWorldScene::RenderLiquidPass();
         CWorldScene::RenderWeather();
+        JeepDrive::RenderDust();     // ours: the jeep's dust (JeepDrive_C.cpp)
         CWorldScene::RenderBarriers(this->m_elapsedSec);
         scene->Draw(M2PASS_1);
     }

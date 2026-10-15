@@ -25,6 +25,9 @@ namespace JeepDrive {
     // In CGUnit_C::Animate: puts the jeep's model where the body is, tilted, and its wheels; false where the unit
     // is not the jeep being driven (the game then places the model itself).
     bool Animate(CGUnit_C* unit);
+    // The dust its wheels throw up, drawn into the world as the game draws its weather (CGWorldFrame::RenderWorld,
+    // after CWorldScene::RenderWeather).
+    void RenderDust();
 }
 
 #endif

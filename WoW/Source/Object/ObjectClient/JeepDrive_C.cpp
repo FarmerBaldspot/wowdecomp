@@ -10,10 +10,21 @@
 //     and the like, is still taken and answered).
 //   - CGUnit_C::Animate asks Animate, which puts the model where the body is, tilted, and turns the wheels' bones.
 //   - CGUnit_C::ShouldRender hides the rider as it hides a passenger in a hidden seat (HidesRider).
+//   - CGWorldFrame::RenderWorld draws the dust (RenderDust) right after the game's weather, as the game draws its
+//     mist: squares before the eye, blended over what is behind, behind what stands before them.
 // The server is told where the jeep is by heartbeats, ten times a second while it moves and once when it stops.
 
 #include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
+#include "Engine/Source/BLPFile/blp.h"
 #include "Engine/Source/ConsoleBase/IConsole.h"
+#include "Engine/Source/Gx/CGxBuf.h"
+#include "Engine/Source/Gx/CGxDevice/CGxDevice.h"
+#include "Engine/Source/Gx/CGxTexFlags.h"
+#include "Engine/Source/Gx/CGxVertexPCT.h"
+#include "Engine/Source/Gx/Gx.h"
+#include "Engine/Source/Services/Texture.h"
+#include "Engine/Source/Tempest/C2Vector.h"
+#include "Engine/Source/Tempest/CImVector.h"
 #include "Engine/Source/Model2/M2Model.h"
 #include "Engine/Source/Os/TimeManager.h"
 #include "Engine/Source/Tempest/C44Matrix.h"
@@ -23,10 +34,18 @@
 #include "WoW/Source/Object/ObjectClient/Unit_C.h"
 #include "WoW/Source/ObjectMgrClient/ObjectMgrClient.h"
 #include "WoW/Source/UIUtil/InputControl.h"
+#include "WoW/Source/WorldClient/DayNight__DNInfo.h"
+#include "WoW/Source/WorldClient/Map.h"
+#include "WoW/Source/WorldClient/MapArea.h"
+#include "WoW/Source/WorldClient/MapChunk.h"
+#include "WoW/Source/WorldClient/Types.h"
 #include "WoW/Source/WorldClient/World.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace JeepDrive {
 
@@ -91,6 +110,7 @@ struct Wheel {
     float length = REST;              // its spring, as last worked out
     float spin = 0;
     float slid = 0;                   // how fast it slid sideways, yards a second, as last worked out
+    float dustDue = 0, clodsDue = 0;  // puffs of dust and clods of dirt owed, not yet thrown
 };
 
 struct Driving {
@@ -548,6 +568,226 @@ void physics(Driving& d, float dt, float throttle, float steering) {
     }
 }
 
+
+// ---- The dust the wheels throw up (it was the gfx DLL's, drive.inc's throwDust and drawDust, with the same numbers).
+// Each wheel on the ground throws puffs where it touches, the more the faster the jeep goes (from 6 yards a second;
+// the back wheels twice the front ones) and the more it slides sideways, and clods of dirt flung off the tyre; they
+// rise a little, are slowed by the air, grow and fade. Their colour is the ground's under the wheel: what the map's
+// own texture there comes to (the one that shows most on that square of the chunk, as the game's ground type is
+// found: CMap::QueryGroundTypeTerrain), lit by the game's light of the hour, and moved toward what the wheel is on now
+// only a quarter of a second's worth at a time (a colour taken fresh every frame flickers over stones and tufts).
+struct Puff {
+    float at[3], v[3];
+    float age, life, size, grows;
+    float turn;                        // how its square is turned, so that no two look alike
+    bool clod;                         // a clod of dirt flung off the tyre, not a puff of dust
+    int wheel;                         // which wheel threw it: it takes the colour of the ground under that one
+};
+
+const size_t MOST_PUFFS = 1200;
+std::vector<Puff> g_puffs;
+uint32_t g_dustLot = 12345;
+uint32_t g_dustAt = 0;                 // when the puffs were last moved on
+float g_wheelEarth[4][3] = { { 0.5f, 0.42f, 0.32f }, { 0.5f, 0.42f, 0.32f }, { 0.5f, 0.42f, 0.32f }, { 0.5f, 0.42f, 0.32f } };
+bool g_wheelEarthKnown[4] = {};
+std::unordered_map<std::string, std::vector<float>> g_textureColours;   // a ground texture's file: its colour, or nothing
+unsigned g_dustThrown = 0;
+
+float lot() {
+    g_dustLot = g_dustLot * 1664525u + 1013904223u;
+    return static_cast<float>(g_dustLot >> 8) / 16777216.0f;
+}
+
+// What a texture of the ground comes to: the middle of one of its small levels (8 x 8 or so), from the file.
+bool textureColour(const char* name, float out[3]) {
+    auto known = g_textureColours.find(name);
+    if (known == g_textureColours.end()) {
+        std::vector<float> colour;
+        CBLPFile blp;
+        if (blp.Open(name, 0)) {
+            uint32_t level = 0;
+            while (blp.IsValidMip(level + 1) && blp.Width(level) > 8) {
+                ++level;
+            }
+            uint8_t* data = nullptr;
+            uint32_t stride = 0;
+            if (blp.Lock(PIXEL_ARGB8888, level, data, stride) && data) {
+                const uint32_t width = blp.Width(level), height = blp.Height(level);
+                double sum[3] = {};
+                for (uint32_t y = 0; y < height; ++y) {
+                    const uint8_t* row = data + y * (stride ? stride : 4 * width);
+                    for (uint32_t x = 0; x < width; ++x) {
+                        sum[0] += row[4 * x + 2];   // (bytes as they lie: blue, green, red, alpha)
+                        sum[1] += row[4 * x + 1];
+                        sum[2] += row[4 * x + 0];
+                    }
+                }
+                const double count = std::max(1u, width * height) * 255.0;
+                colour = { static_cast<float>(sum[0] / count), static_cast<float>(sum[1] / count), static_cast<float>(sum[2] / count) };
+                blp.Unlock(level);
+            }
+            blp.Close();
+        }
+        ConsolePrintf("Jeep: the ground's texture %s %s", name, colour.empty() ? "could not be read" : "is read for the dust's colour");
+        known = g_textureColours.emplace(name, colour).first;
+    }
+    if (known->second.size() != 3) {
+        return false;
+    }
+    std::memcpy(out, known->second.data(), 3 * sizeof(float));
+    return true;
+}
+
+// The colour of the map's own ground at a place: its texture that shows most on that square.
+bool groundColour(float x, float y, float out[3]) {
+    const float fromWest = -(y - 17066.666f), fromNorth = -(x - 17066.666f);
+    if (fromWest < 0.0f || fromNorth < 0.0f || fromWest >= 34133.332f || fromNorth >= 34133.332f) {
+        return false;
+    }
+    const int32_t cellY = static_cast<int32_t>(fromNorth * 0.24f), cellX = static_cast<int32_t>(fromWest * 0.24f);
+    CMapArea* area = CMap::GetLoadedArea((cellX >> 7) & 0x3F, (cellY >> 7) & 0x3F);
+    if (!area) {
+        return false;
+    }
+    CMapChunk* chunk = area->m_mapChunks[16 * ((cellY >> 3) & 0xF) + ((cellX >> 3) & 0xF)];
+    if (!chunk || !chunk->m_header || !chunk->m_layers || !chunk->m_lowQualityTexMap) {
+        return false;
+    }
+    const int32_t col = cellX & 7, row = cellY & 7;
+    const uint32_t layer = (CMap::s_2bitSplatMask[col] & reinterpret_cast<const uint16_t*>(chunk->m_lowQualityTexMap)[row]) >> CMap::s_2bitSplatShft[col];
+    if (layer >= chunk->m_header->m_nLayers) {
+        return false;
+    }
+    const uint32_t texture = chunk->m_layers[layer].m_textureId;
+    if (texture >= area->m_textures.Count() || !area->m_textures.m_data[texture].m_textureName) {
+        return false;
+    }
+    return textureColour(area->m_textures.m_data[texture].m_textureName, out);
+}
+
+void throwDust(Driving& d, float dt) {
+    const float speed = std::sqrt(dot(d.v, d.v));
+    const float front[3] = { d.axes[0][0], d.axes[1][0], d.axes[2][0] };
+    const float left[3] = { d.axes[0][1], d.axes[1][1], d.axes[2][1] };
+    for (int i = 0; i < 4; ++i) {
+        Wheel& wheel = d.wheels[i];
+        if (!wheel.down || !wheel.onGround) {
+            wheel.dustDue = 0;
+            continue;
+        }
+        // The colour of what it is on, moved toward a quarter of a second's worth.
+        float earth[3];
+        if (groundColour(wheel.hit.x, wheel.hit.y, earth)) {
+            const float take = g_wheelEarthKnown[i] ? std::min(1.0f, dt / 0.25f) : 1.0f;
+            for (int k = 0; k < 3; ++k) {
+                g_wheelEarth[i][k] += (earth[k] - g_wheelEarth[i][k]) * take;
+            }
+            g_wheelEarthKnown[i] = true;
+        }
+        const float hit[3] = { wheel.hit.x, wheel.hit.y, wheel.hit.z };
+        const float fast = std::max(0.0f, std::min(1.0f, (speed - 6.0f) / 22.0f));
+        const float sliding = std::min(1.0f, wheel.slid / 5.0f);
+        const float back = i < 2 ? 0.5f : 1.0f;                                              // the back wheels throw more
+        wheel.dustDue += back * (35.0f * fast + 28.0f * sliding) * dt;
+        wheel.clodsDue += back * (28.0f * fast + 24.0f * sliding) * dt;
+        // (A puff of dust: carried on with the jeep for the most part; rising a little, spreading, growing large.)
+        while (wheel.dustDue >= 1.0f && g_puffs.size() < MOST_PUFFS) {
+            wheel.dustDue -= 1.0f;
+            Puff puff;
+            puff.clod = false;
+            puff.wheel = i;
+            const float aside = (lot() - 0.5f) * 0.5f, ahead = (lot() - 0.5f) * 0.6f;
+            for (int k = 0; k < 3; ++k) {
+                puff.at[k] = hit[k] + left[k] * aside + front[k] * ahead;
+                puff.v[k] = d.v[k] * 0.62f + left[k] * (lot() - 0.5f) * (2.0f + wheel.slid * 0.5f);
+            }
+            puff.at[2] += 0.1f;
+            puff.v[2] += 0.3f + lot() * (0.6f + speed * 0.015f);
+            puff.age = 0;
+            puff.life = 0.8f + lot() * (0.6f + fast * 0.6f);
+            puff.size = 0.4f + lot() * 0.3f;
+            puff.grows = 0.9f + lot() * 0.8f + fast * 0.8f;
+            puff.turn = lot() * 6.2831853f;
+            g_puffs.push_back(puff);
+            ++g_dustThrown;
+        }
+        // (A clod: flung up and back off the tyre's top, falling as anything falls.)
+        while (wheel.clodsDue >= 1.0f && g_puffs.size() < MOST_PUFFS) {
+            wheel.clodsDue -= 1.0f;
+            Puff puff;
+            puff.clod = true;
+            puff.wheel = i;
+            const float aside = (lot() - 0.5f) * 0.5f;
+            for (int k = 0; k < 3; ++k) {
+                puff.at[k] = hit[k] + left[k] * aside;
+                puff.v[k] = d.v[k] * (0.45f + lot() * 0.3f) + left[k] * (lot() - 0.5f) * (3.0f + wheel.slid * 0.6f);
+            }
+            puff.at[2] += 0.35f;
+            puff.v[2] += 1.5f + lot() * (2.0f + speed * 0.06f);
+            puff.age = 0;
+            puff.life = 0.5f + lot() * 0.6f;
+            puff.size = 0.05f + lot() * 0.08f;
+            puff.grows = 0;
+            puff.turn = lot() * 6.2831853f;
+            g_puffs.push_back(puff);
+        }
+        wheel.clodsDue = std::min(wheel.clodsDue, 4.0f);
+        wheel.dustDue = std::min(wheel.dustDue, 4.0f);
+    }
+}
+
+// Moved on: the air slows them, they sink a little, grow and fade.
+void moveDust(float dt) {
+    const float slowed = std::exp(-1.8f * dt), slowedLess = std::exp(-0.4f * dt);
+    size_t kept = 0;
+    for (Puff& puff : g_puffs) {
+        puff.age += dt;
+        if (puff.age >= puff.life) {
+            continue;
+        }
+        for (int k = 0; k < 3; ++k) {
+            puff.v[k] *= puff.clod ? slowedLess : slowed;
+            puff.at[k] += puff.v[k] * dt;
+        }
+        puff.v[2] -= (puff.clod ? GRAVITY * 0.8f : 1.5f) * dt;
+        puff.size += puff.grows * dt;
+        g_puffs[kept++] = puff;
+    }
+    g_puffs.resize(kept);
+}
+
+// The picture a puff is drawn with: soft all the way to its edge, thickest in its middle, lumpy (two slow waves
+// across it, as the DLL's shader had them). White: each puff's colour is its corners'.
+const uint32_t PUFF_SIZE = 64;
+CImVector g_puffTexels[PUFF_SIZE * PUFF_SIZE];
+CTexture* g_puffTexture = nullptr;
+
+void puffTexels(EGxTexCommand command, uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevel, void* userArg, uint32_t& texelStrideInBytes, const void*& texels) {
+    if (command == GxTex_Latch) {
+        texelStrideInBytes = 4 * width;
+        texels = g_puffTexels;
+    }
+}
+
+CGxTex* puffTexture() {
+    if (!g_puffTexture) {
+        for (uint32_t y = 0; y < PUFF_SIZE; ++y) {
+            for (uint32_t x = 0; x < PUFF_SIZE; ++x) {
+                const float px = (x + 0.5f) / PUFF_SIZE * 2.0f - 1.0f, py = (y + 0.5f) / PUFF_SIZE * 2.0f - 1.0f;
+                const float r = std::sqrt(px * px + py * py);
+                float soft = std::max(0.0f, std::min(1.0f, 1.0f - r));
+                soft = soft * soft * (3.0f - 2.0f * soft);
+                const float lumps = 0.7f + 0.3f * std::sin(px * 4.3f + 1.3f) * std::sin(py * 3.7f + 4.1f);
+                CImVector& texel = g_puffTexels[y * PUFF_SIZE + x];
+                texel.r = texel.g = texel.b = 255;
+                texel.a = static_cast<uint8_t>(std::max(0.0f, std::min(1.0f, soft * lumps)) * 255.0f);
+            }
+        }
+        g_puffTexture = TextureCreate(PUFF_SIZE, PUFF_SIZE, GxTex_Argb8888, GxTex_Argb8888, CGxTexFlags(GxTex_Linear, 0, 0, 0, 0, 0, 1), nullptr, puffTexels, "JeepDust", 0);
+    }
+    return g_puffTexture ? TextureGetGxTex(g_puffTexture, 0, nullptr) : nullptr;
+}
+
 }  // namespace
 
 bool Drives(const CGUnit_C* unit) {
@@ -560,6 +800,10 @@ bool HidesRider(const CGUnit_C* unit) {
 
 void Update(uint32_t now) {
     Driving& d = g_driving;
+    if (!g_puffs.empty()) {
+        moveDust(g_dustAt ? std::min(static_cast<float>(now - g_dustAt) * 0.001f, 0.1f) : 0.0f);
+    }
+    g_dustAt = now;
     CGUnit_C* mover = static_cast<CGUnit_C*>(ClntObjMgrObjectPtr(CGUnit_C::s_activeMover, TYPEMASK_UNIT, __FILE__, __LINE__));
     CGUnit_C* unit = jeepOf(mover);
 
@@ -608,6 +852,7 @@ void Update(uint32_t now) {
     const float steering = ((keys & 0x100) ? 1.0f : 0.0f) - ((keys & 0x200) ? 1.0f : 0.0f);
 
     physics(d, dt, throttle, steering);
+    throwDust(d, dt);
 
     // The game: the unit where the body's foot is, facing the way the body points.
     const float front[3] = { d.axes[0][0], d.axes[1][0], d.axes[2][0] };
@@ -634,8 +879,9 @@ void Update(uint32_t now) {
     }
 
     if (now - d.saidAt > 5000) {
-        ConsolePrintf("Jeep: %.1f yd/s, springs %.2f %.2f %.2f %.2f, steer %.2f, %u heartbeat(s), %u frame(s) drawn by it",
-            speed, d.wheels[0].length, d.wheels[1].length, d.wheels[2].length, d.wheels[3].length, d.steer, d.told, d.animated);
+        ConsolePrintf("Jeep: %.1f yd/s, springs %.2f %.2f %.2f %.2f, steer %.2f, %u heartbeat(s), %u frame(s) drawn by it; dust: %u thrown, %u in the air, the ground's colour %.2f %.2f %.2f",
+            speed, d.wheels[0].length, d.wheels[1].length, d.wheels[2].length, d.wheels[3].length, d.steer, d.told, d.animated,
+            g_dustThrown, static_cast<unsigned>(g_puffs.size()), g_wheelEarth[3][0], g_wheelEarth[3][1], g_wheelEarth[3][2]);
         d.saidAt = now;
     }
 }
@@ -677,6 +923,122 @@ bool Animate(CGUnit_C* unit) {
     }
     ++d.animated;
     return true;
+}
+
+void RenderDust() {
+    if (g_puffs.empty()) {
+        return;
+    }
+    CGxTex* texture = puffTexture();
+    if (!texture) {
+        return;
+    }
+    // Lit as the ground is: the game's light of the hour and the place (ambient, and the sun's in part).
+    const DayNight::DNInfo* info = DayNight::GetInfo();
+    float light[3] = { 1.0f, 1.0f, 1.0f };
+    if (info) {
+        const CImVector& ambient = info->m_light0.m_ambient;
+        const CImVector& diffuse = info->m_light0.m_diffuse;
+        light[0] = (ambient.r + diffuse.r * 0.6f) / 255.0f;
+        light[1] = (ambient.g + diffuse.g * 0.6f) / 255.0f;
+        light[2] = (ambient.b + diffuse.b * 0.6f) / 255.0f;
+        for (float& part : light) {
+            part = std::max(0.12f, std::min(1.4f, part));
+        }
+    }
+    // Dust is the ground made fine and dry: paler, and a little toward grey; a clod is the ground itself, darker.
+    float dust[4][3], clod[4][3];
+    for (int i = 0; i < 4; ++i) {
+        const float* earth = g_wheelEarth[i];
+        const float grey = earth[0] * 0.30f + earth[1] * 0.55f + earth[2] * 0.15f;
+        for (int k = 0; k < 3; ++k) {
+            dust[i][k] = std::min(1.0f, ((earth[k] + (grey - earth[k]) * 0.3f) * 1.25f + 0.04f) * light[k]);
+            clod[i][k] = std::min(1.0f, earth[k] * 0.55f * light[k]);
+        }
+    }
+
+    // Squares before the eye: the view's right and up, as the game's mist has them.
+    C44Matrix view;
+    GxXformView(view);
+    const C3Vector right(view.a0, view.b0, view.c0), up(view.a1, view.b1, view.c1);
+    const C3Vector& eye = CWorldScene::s_activeWorldView;
+    const bool rgba = g_theGxDevicePtr->Caps().m_colorFormat == GxCF_rgba;
+    static const C2Vector CORNER_UV[4] = { C2Vector(0.0f, 0.0f), C2Vector(1.0f, 0.0f), C2Vector(1.0f, 1.0f), C2Vector(0.0f, 1.0f) };
+    static const float CORNER_AT[4][2] = { { -1.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, -1.0f }, { -1.0f, -1.0f } };
+
+    const uint32_t most = static_cast<uint32_t>(std::min<size_t>(g_puffs.size(), 16000 / 4));
+    CGxBuf* vertexBuf = g_theGxDevicePtr->BufStream(GxPoolTarget_Vertex, sizeof(CGxVertexPCT), 4 * most);
+    CGxVertexPCT* vertices = reinterpret_cast<CGxVertexPCT*>(g_theGxDevicePtr->BufLock(vertexBuf));
+    CGxBuf* indexBuf = g_theGxDevicePtr->BufStream(GxPoolTarget_Index, sizeof(uint16_t), 6 * most);
+    uint16_t* indices = reinterpret_cast<uint16_t*>(g_theGxDevicePtr->BufLock(indexBuf));
+    uint32_t vertexCount = 0;
+    for (const Puff& puff : g_puffs) {
+        if (vertexCount / 4 >= most) {
+            break;
+        }
+        const C3Vector at(puff.at[0] - eye.x, puff.at[1] - eye.y, puff.at[2] - eye.z);
+        const float share = puff.age / puff.life;
+        float much = puff.clod ? 0.95f * std::min(1.0f, (1.0f - share) * 4.0f)
+                               : 0.45f * std::pow(1.0f - share, 1.3f) * std::min(1.0f, puff.age * 10.0f);
+        // (Faded where it comes near the eye: else it is a cloud over the whole screen.)
+        const float away = std::sqrt(at.x * at.x + at.y * at.y + at.z * at.z);
+        much *= std::max(0.0f, std::min(1.0f, (away - 1.5f) / 3.0f));
+        if (much < 0.01f) {
+            continue;
+        }
+        const float* tint = puff.clod ? clod[puff.wheel] : dust[puff.wheel];
+        CImVector colour;
+        colour.r = static_cast<uint8_t>(tint[0] * 255.0f);
+        colour.g = static_cast<uint8_t>(tint[1] * 255.0f);
+        colour.b = static_cast<uint8_t>(tint[2] * 255.0f);
+        colour.a = static_cast<uint8_t>(std::min(1.0f, much) * 255.0f);
+        if (rgba) {
+            std::swap(colour.r, colour.b);
+        }
+        // Its square turned by its own angle, so that no two show their lumps alike.
+        const float c = std::cos(puff.turn) * puff.size, s = std::sin(puff.turn) * puff.size;
+        const C3Vector across(right.x * c + up.x * s, right.y * c + up.y * s, right.z * c + up.z * s);
+        const C3Vector upward(up.x * c - right.x * s, up.y * c - right.y * s, up.z * c - right.z * s);
+        for (int j = 0; j < 4; ++j) {
+            vertices->p = C3Vector(at.x + across.x * CORNER_AT[j][0] + upward.x * CORNER_AT[j][1],
+                                   at.y + across.y * CORNER_AT[j][0] + upward.y * CORNER_AT[j][1],
+                                   at.z + across.z * CORNER_AT[j][0] + upward.z * CORNER_AT[j][1]);
+            vertices->c = colour;
+            vertices->tc = CORNER_UV[j];
+            ++vertices;
+        }
+        indices[0] = static_cast<uint16_t>(vertexCount);
+        indices[1] = static_cast<uint16_t>(vertexCount + 1);
+        indices[2] = static_cast<uint16_t>(vertexCount + 2);
+        indices[3] = static_cast<uint16_t>(vertexCount);
+        indices[4] = static_cast<uint16_t>(vertexCount + 2);
+        indices[5] = static_cast<uint16_t>(vertexCount + 3);
+        indices += 6;
+        vertexCount += 4;
+    }
+    GxBufUnlock(indexBuf, 0);
+    GxBufUnlock(vertexBuf, 0);
+    if (!vertexCount) {
+        return;
+    }
+    g_theGxDevicePtr->RsPush();
+    GxRsSet(GxRs_BlendingMode, GxBlend_Alpha);
+    GxRsSet(GxRs_AlphaRef, static_cast<int32_t>(CGxDevice::s_alphaRef[g_theGxDevicePtr->m_appRenderStates.m_data[GxRs_BlendingMode].m_value.m_data.i[0]]));
+    GxRsSet(GxRs_Fog, 0);
+    GxRsSet(GxRs_DepthWrite, 0);
+    GxRsSet(GxRs_Culling, 0);
+    GxRsSet(GxRs_Lighting, 0);
+    GxRsSet(GxRs_Texture0, texture);
+    GxPrimVertexPtr(vertexBuf, GxVBF_PCT);
+    g_theGxDevicePtr->PrimIndexPtr(indexBuf);
+    CGxBatch batch;
+    batch.m_primType = GxPrim_Triangles;
+    batch.m_start = 0;
+    batch.m_count = (6 * vertexCount) / 4;
+    batch.m_minIndex = 0;
+    batch.m_maxIndex = vertexCount - 1;
+    g_theGxDevicePtr->Draw(&batch, 1);
+    g_theGxDevicePtr->RsPop();
 }
 
 }  // namespace JeepDrive
