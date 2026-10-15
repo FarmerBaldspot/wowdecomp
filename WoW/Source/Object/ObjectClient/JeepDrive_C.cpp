@@ -12,6 +12,11 @@
 //   - CGUnit_C::ShouldRender hides the rider as it hides a passenger in a hidden seat (HidesRider).
 //   - CGWorldFrame::RenderWorld draws the dust (RenderDust) right after the game's weather, as the game draws its
 //     mist: squares before the eye, blended over what is behind, behind what stands before them.
+// Its sounds are played by the game's own sound engine (SESound, FMOD), in the world where the jeep is and on the
+// channel group of sound effects, so the game's own volume for those and its hearing by distance apply. Their
+// files are loose files beside the client (Sound\WowEditor\Jeep\*.wav under bin\Win, put there by the build
+// from Ours\Sound): the game's file layer finds such a file by its name relative to its own folder when a sound
+// asks for it (System_SFile2::FindFile, the file system hash), as it does not for anything else.
 // The server is told where the jeep is by heartbeats, ten times a second while it moves and once when it stops.
 
 #include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
@@ -23,6 +28,7 @@
 #include "Engine/Source/Gx/CGxVertexPCT.h"
 #include "Engine/Source/Gx/Gx.h"
 #include "Engine/Source/Services/Texture.h"
+#include "Engine/Source/SoundEngine/SoundEngine.h"
 #include "Engine/Source/Tempest/C2Vector.h"
 #include "Engine/Source/Tempest/CImVector.h"
 #include "Engine/Source/Model2/M2Model.h"
@@ -130,6 +136,11 @@ struct Driving {
     // What the model is to show: its axes and foot, and each wheel's turn (in the body's own space).
     bool placed = false;
     float foot[3] = {};
+    // For the sounds: the engine's revs (0 to 1) and how hard it works, how long it has been in the air, and how
+    // it moved the frame before.
+    float rpm = 0.1f, load = 0, airTime = 0, wasV[3] = {};
+    bool wasKnown = false;
+    unsigned thumps = 0;
 };
 
 Driving g_driving;
@@ -242,12 +253,15 @@ void freeWheels(CGUnit_C* unit) {
     }
 }
 
+void hushSounds();
+
 void stop(Driving& d, uint32_t now) {
     if (!d.driving) {
         return;
     }
     CGUnit_C* unit = static_cast<CGUnit_C*>(ClntObjMgrObjectPtr(d.unit, TYPEMASK_UNIT, __FILE__, __LINE__));
     freeWheels(unit);
+    hushSounds();
     ConsolePrintf("Jeep: stopped driving (%u heartbeat(s), %u trace(s), the shell touched the ground %u time(s), lifted out %u)", d.told, d.traces, d.shellTouches, d.shellLifted);
     d = Driving {};
     // Keys that are still held now move the player as the game moves them.
@@ -788,6 +802,147 @@ CGxTex* puffTexture() {
     return g_puffTexture ? TextureGetGxTex(g_puffTexture, 0, nullptr) : nullptr;
 }
 
+// ---- Its sounds (they were the gfx DLL's, drive.inc's soundJeep, with the same numbers; the files are made by the
+// editor's client\gfx\sounds\make_sounds.py):
+//   - the engine, a loop played faster with the revs, which climb through five gears with the speed along the jeep
+//     and fall back at each change; with the throttle and the wheels spinning on the spot or in the air it revs up;
+//     standing still, an idle; louder with the throttle;
+//   - the tyres' squeal, by how fast the wheels on the ground slide sideways;
+//   - the ground under them, by the speed and how many wheels touch it;
+//   - the wind, from 8 yards a second;
+//   - a thump, landing hard (by how fast it fell) or brought up short (its speed changed by more than the driving
+//     itself changes it in a frame: a wall, the ground's edge).
+// How far off it is heard and to which side is the game's sound engine's affair now (the jeep is a sound in the
+// world); the DLL worked it out from the camera itself.
+const char* const JEEP_SOUND_FILES[5] = {
+    "Sound\\WowEditor\\Jeep\\engine.wav", "Sound\\WowEditor\\Jeep\\skid.wav", "Sound\\WowEditor\\Jeep\\gravel.wav",
+    "Sound\\WowEditor\\Jeep\\wind.wav", "Sound\\WowEditor\\Jeep\\thump.wav"
+};
+enum { ENGINE_SOUND, SKID_SOUND, GROUND_SOUND, WIND_SOUND, THUMP_SOUND };
+const float GEAR_TOPS[5] = { 5.5f, 11.0f, 17.0f, 23.5f, 31.0f };   // yards a second at the top of each gear
+const float SOUND_LOUDNESS = 0.9f;
+const float HEARD_FULLY = 8.0f, HEARD_UP_TO = 80.0f;               // yards: as loud as it is up to, and heard up to
+SESound g_loops[4];
+bool g_loopsMade = false, g_soundsSaid = false;
+
+bool makeSound(SESound& sound, int which, bool looping, const C3Vector& at) {
+    if (!sound.Create3D(JEEP_SOUND_FILES[which], looping ? 1 : 0, nullptr, nullptr, looping, false, 128, 1, 360.0f, 360.0f, 1.0f, nullptr)) {
+        if (!g_soundsSaid) {
+            ConsolePrintf("Jeep: the sound %s could not be made (is it beside the client, under bin\\Win?)", JEEP_SOUND_FILES[which]);
+            g_soundsSaid = true;
+        }
+        return false;
+    }
+    sound.Set3DPosition(at);
+    sound.Set3DMinMaxDistance(HEARD_FULLY, HEARD_UP_TO);
+    sound.SetChannelGroup("SFX", true);
+    sound.SetVolume(0.0f);
+    sound.CompleteNonBlockingLoad();
+    sound.Play();
+    return true;
+}
+
+void hushSounds() {
+    if (!g_loopsMade) {
+        return;
+    }
+    for (SESound& loop : g_loops) {
+        loop.Stop(0, 0.3f);
+    }
+    g_loopsMade = false;
+}
+
+void setLoop(int which, float volume, float pitch, const C3Vector& at) {
+    SESound& loop = g_loops[which];
+    loop.Set3DPosition(at);
+    loop.SetVolume(std::max(0.0f, std::min(1.0f, volume)));
+    loop.SetPitch(std::max(0.25f, std::min(4.0f, pitch)));
+}
+
+void soundJeep(Driving& d, float dt, float throttle) {
+    const C3Vector at(d.at[0], d.at[1], d.at[2]);
+    if (!g_loopsMade) {
+        bool all = true;
+        for (int i = 0; i < 4; ++i) {
+            all = makeSound(g_loops[i], i, true, at) && all;
+        }
+        g_loopsMade = true;
+        if (all) {
+            ConsolePrintf("Jeep: its sounds are playing");
+        }
+    }
+    if (dt <= 0) {
+        return;
+    }
+    const float front[3] = { d.axes[0][0], d.axes[1][0], d.axes[2][0] };
+    const float along = std::fabs(dot(d.v, front));
+    const float speed = std::sqrt(dot(d.v, d.v));
+    int down = 0;
+    float slid = 0;
+    for (const Wheel& wheel : d.wheels) {
+        if (wheel.down) {
+            ++down;
+            slid = std::max(slid, wheel.slid);
+        }
+    }
+    const float loud = SOUND_LOUDNESS;
+    // The engine.
+    int gear = 0;
+    while (gear < 4 && along > GEAR_TOPS[gear]) {
+        ++gear;
+    }
+    const float low = gear ? GEAR_TOPS[gear - 1] : 0.0f;
+    const float share = std::max(0.0f, std::min(1.0f, (along - low) / (GEAR_TOPS[gear] - low)));
+    float revs = gear ? 0.38f + 0.62f * share : 0.16f + 0.84f * share;
+    const bool working = throttle != 0.0f;
+    if (working && (down == 0 || slid > 4.0f)) {
+        revs = std::max(revs, 0.75f);              // spinning, or in the air: it revs
+    }
+    if (!working && along < 0.5f) {
+        revs = 0.1f;                               // standing: an idle
+    }
+    d.rpm += (revs - d.rpm) * std::min(1.0f, dt * (revs < d.rpm ? 10.0f : 5.0f));
+    d.load += ((working ? 1.0f : 0.0f) - d.load) * std::min(1.0f, dt * 6.0f);
+    setLoop(ENGINE_SOUND, loud * (0.30f + 0.36f * d.load + 0.22f * d.rpm), 0.85f + d.rpm * 3.4f, at);
+    // The tyres sliding.
+    const float squeal = std::max(0.0f, std::min(1.0f, (slid - 1.5f) / 5.0f)) * (down ? 1.0f : 0.0f);
+    setLoop(SKID_SOUND, loud * 0.55f * squeal, 0.92f + 0.15f * std::min(1.0f, slid / 10.0f), at);
+    // The ground under them.
+    const float rolling = std::pow(std::min(1.0f, speed / 18.0f), 0.7f) * static_cast<float>(down) / 4.0f;
+    setLoop(GROUND_SOUND, loud * 0.5f * rolling, 0.75f + 0.55f * std::min(1.0f, speed / 28.0f), at);
+    // The wind.
+    const float windy = std::pow(std::max(0.0f, std::min(1.0f, (speed - 8.0f) / 22.0f)), 1.5f);
+    setLoop(WIND_SOUND, loud * 0.45f * windy, 0.8f + 0.5f * std::min(1.0f, speed / 30.0f), at);
+    // A thump.
+    float knock = 0;
+    if (down == 0) {
+        d.airTime += dt;
+    } else {
+        if (d.airTime > 0.25f && d.wasKnown && d.wasV[2] < -4.0f) {
+            knock = std::max(knock, (-d.wasV[2] - 4.0f) / 10.0f);
+        }
+        d.airTime = 0;
+    }
+    if (d.wasKnown) {
+        const float changed[3] = { d.v[0] - d.wasV[0], d.v[1] - d.wasV[1], d.v[2] - d.wasV[2] + GRAVITY * dt };
+        const float by = std::sqrt(dot(changed, changed));
+        if (by > 4.0f) {
+            knock = std::max(knock, (by - 4.0f) / 8.0f);
+        }
+    }
+    if (knock > 0.05f) {
+        // (A sound of its own each time; it plays to its end after this one is gone, as the game's one-off sounds do.)
+        SESound thump;
+        if (makeSound(thump, THUMP_SOUND, false, at)) {
+            thump.SetVolume(std::min(1.0f, loud * std::min(1.0f, 0.35f + knock)));
+            thump.SetPitch(0.9f + 0.2f * lot());
+            ++d.thumps;
+        }
+    }
+    std::memcpy(d.wasV, d.v, sizeof d.wasV);
+    d.wasKnown = true;
+}
+
 }  // namespace
 
 bool Drives(const CGUnit_C* unit) {
@@ -864,6 +1019,7 @@ void Update(uint32_t now) {
     movement->m_facing = std::atan2(front[1], front[0]);
     d.placed = true;
     unit->OnMoveUpdate(now, 0, 0);
+    soundJeep(d, dt, throttle);
 
     // The server: where it is, ten times a second while it moves, and once more when it stops.
     const float speed = std::sqrt(dot(d.v, d.v));
@@ -879,8 +1035,8 @@ void Update(uint32_t now) {
     }
 
     if (now - d.saidAt > 5000) {
-        ConsolePrintf("Jeep: %.1f yd/s, springs %.2f %.2f %.2f %.2f, steer %.2f, %u heartbeat(s), %u frame(s) drawn by it; dust: %u thrown, %u in the air, the ground's colour %.2f %.2f %.2f",
-            speed, d.wheels[0].length, d.wheels[1].length, d.wheels[2].length, d.wheels[3].length, d.steer, d.told, d.animated,
+        ConsolePrintf("Jeep: %.1f yd/s, springs %.2f %.2f %.2f %.2f, steer %.2f, %u heartbeat(s), %u frame(s) drawn by it; %u thump(s); dust: %u thrown, %u in the air, the ground's colour %.2f %.2f %.2f",
+            speed, d.wheels[0].length, d.wheels[1].length, d.wheels[2].length, d.wheels[3].length, d.steer, d.told, d.animated, d.thumps,
             g_dustThrown, static_cast<unsigned>(g_puffs.size()), g_wheelEarth[3][0], g_wheelEarth[3][1], g_wheelEarth[3][2]);
         d.saidAt = now;
     }

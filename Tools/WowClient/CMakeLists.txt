@@ -85,3 +85,9 @@ target_link_libraries(WowClient
         WowSvcs
         dbghelp
 )
+
+# Ours (the World of Warcraft editor project): files of our own that the client reads as loose files from its own
+# folder, the jeep's sounds among them (JeepDrive_C.cpp). Copied beside the client after every build.
+add_custom_command(TARGET WowClient POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/Ours/Sound ${CMAKE_SOURCE_DIR}/bin/Win/Sound
+)
