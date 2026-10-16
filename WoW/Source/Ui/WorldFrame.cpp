@@ -1,5 +1,9 @@
 #include "WorldFrame.h"
 #include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
+#include "WoW/Source/WorldClient/OursFoam.h"     // ours: the solid world for the water's foam
+#ifdef _WIN32
+#include "Engine/Source/Gx/CGxDeviceD3d/OursWater.h"     // ours: the water made anew
+#endif
 #include "Engine/Source/Base/ConvertUTF.h"
 #include <cstring>
 #include <typeinfo>
@@ -1759,10 +1763,18 @@ void CGWorldFrame::OnWorldRender() {
         scene->Draw(M2PASS_1);
         CWorldScene::RenderWeather();
         JeepDrive::RenderDust();     // ours: the jeep's dust (JeepDrive_C.cpp)
+#ifdef _WIN32
+        OursFoam::Update();          // ours: the solid world from above, for the foam (OursFoam.cpp)
+        OursWater::BeforeLiquids();  // ours: the frame and its depth kept for the water (OursWater.cpp)
+#endif
         CWorldScene::RenderLiquidPass();
         scene->Draw(M2PASS_2);
     } else {
         scene->Draw(M2PASS_2);
+#ifdef _WIN32
+        OursFoam::Update();          // ours: the solid world from above, for the foam (OursFoam.cpp)
+        OursWater::BeforeLiquids();  // ours: the frame and its depth kept for the water (OursWater.cpp)
+#endif
         CWorldScene::RenderLiquidPass();
         CWorldScene::RenderWeather();
         JeepDrive::RenderDust();     // ours: the jeep's dust (JeepDrive_C.cpp)

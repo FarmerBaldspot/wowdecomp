@@ -25,6 +25,7 @@
 #include "WoW/Source/DB/Rec/LightParamsRec.h"
 #include "WoW/Source/DB/Rec/LightRec.h"
 #include "WoW/Source/DB/Rec/LightSkyboxRec.h"
+#include "WoW/Source/WorldClient/OursSkyColours.h"     // ours: the sky drawn anew
 #include "WoW/Source/DB/Rec/LiquidTypeRec.h"
 #include "WoW/Source/Game/GameTime.h"
 #include "WoW/Source/WorldClient/CPortalView.h"
@@ -1833,8 +1834,12 @@ void DayNight::RenderSky(CPortalView* view) {
         DayNight::g_planets.m_sun.Render();
         DayNight::g_planets.m_moon.Render();
         DayNight::g_planets.m_moon2.Render();
-        DayNight::g_sky.Render();
-        DayNight::g_clouds.Render();
+        // Ours: the sky drawn anew in the zone's own colours, with clouds of ours (OursSkyColours.cpp); the game's
+        // dome and clouds where that is off or cannot be.
+        if (!OursSkyColours::Render()) {
+            DayNight::g_sky.Render();
+            DayNight::g_clouds.Render();
+        }
     }
 
     if (s_skyScene) {

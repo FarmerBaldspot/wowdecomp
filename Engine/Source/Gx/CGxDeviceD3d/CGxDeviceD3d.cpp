@@ -3,6 +3,7 @@
 #include <cstring>
 #include <malloc.h>
 #include "Engine/Source/Gx/CGxDeviceD3d/CGxDeviceD3d.h"
+#include "Engine/Source/Gx/CGxDeviceD3d/OursWater.h"     // ours: the water made anew
 #include "Engine/Source/Gx/Blit.h"
 #include "Engine/Source/Gx/CGxBuf.h"
 #include "Engine/Source/Gx/CGxPool.h"
@@ -2655,6 +2656,7 @@ int32_t CGxDeviceD3d::ICreateD3dDevice(const CGxFormat& format) {
 // VERIFY: 7e7b165d manual
 // OFFSET: 0x00690150
 void CGxDeviceD3d::IReleaseD3dResources(int32_t freeTextures) {
+    OursWater::DeviceLost();  // ours: what the water made anew holds of the device goes before a reset
     this->ITexForceRecreation(freeTextures);
     this->IReleaseD3dShaders(freeTextures);
     this->IReleaseD3dPools(freeTextures);
@@ -3332,6 +3334,7 @@ void CGxDeviceD3d::IStateSetD3DDefaults() {
     }
 
     this->m_d3dDevice->GetRenderTarget(0, &this->m_defColorSurface);
+    OursWater::DeviceReady(this->m_d3dDevice);  // ours: a depth buffer that can be read, set before the game takes it
     this->m_d3dDevice->GetDepthStencilSurface(&this->m_defDepthSurface);
     this->InitLights();
     this->m_ambientOnlyMode = 0;

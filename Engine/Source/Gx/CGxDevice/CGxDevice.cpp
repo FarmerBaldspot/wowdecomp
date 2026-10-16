@@ -15,6 +15,9 @@
 #include "Engine/Source/Os/OsFile.h"
 #include "Engine/Source/Os/Processor.h"
 #include "Engine/Source/Os/TimeManager.h"
+#ifdef _WIN32
+#include "Engine/Source/Gx/CGxDeviceD3d/OursWater.h"     // ours: the water made anew
+#endif
 
 // STATIC: 0x00A2DAF8
 const uint32_t CGxDevice::s_texFormatBitDepth[GxTexFormats_Last] = { 0, 32, 32, 16, 16, 16, 4, 8, 8, 16, 32, 32, 32 };
@@ -1799,6 +1802,11 @@ void CGxDevice::ShaderCreate(CGxShader** shaders, EGxShTarget target, const char
     }
 
     this->IShaderLoad(shaders, target, path, name, permutations);
+
+#ifdef _WIN32
+    // Ours: the water made anew, compiled in the place of the game's water shaders (OursWater.cpp).
+    OursWater::AfterShaderLoad(shaders, target, name, permutations);
+#endif
 }
 
 // VERIFY: 10cd5175 manual

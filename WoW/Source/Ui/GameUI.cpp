@@ -48,6 +48,7 @@
 #include "WoW/Source/Game/GameClient/PlayerName.h"
 #include "WoW/Source/Glue/CGlueMgr.h"
 #include "WoW/Source/Glue/CWOWClientStatus.h"
+#include "WoW/Source/WorldClient/OursGraphics.h"     // ours: our page of Video options
 #include "WoW/Source/LoadingScreen.h"
 #include "WoW/Source/Magic/MagicClient/Spell_C.h"
 #include "WoW/Source/Net/Types.h"
@@ -1772,6 +1773,8 @@ void CGGameUI::InitializeFrameXML() {
     if (SFile::FileExistsEx("Interface\\FrameXML\\Bindings.xml", 1)) {
         CGUIBindings::s_bindings->Load("Interface\\FrameXML\\Bindings.xml", &md5, &status);
     }
+
+    OursGraphics::LoadOptionsPage(&status);  // ours: our page of Video options, as part of the game's own interface
 
     uint8_t digest[16];
     MD5Final(digest, &md5);

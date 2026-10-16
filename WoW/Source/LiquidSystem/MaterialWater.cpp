@@ -1,6 +1,9 @@
 #include "Liquid.h"
 #include "Engine/Source/Gx/CGxDevice/CGxDevice.h"
 #include "Engine/Source/Gx/Gx.h"
+#ifdef _WIN32
+#include "Engine/Source/Gx/CGxDeviceD3d/OursWater.h"     // ours: the water made anew
+#endif
 #include "Engine/Source/Model2/M2Light.h"
 #include "Engine/Source/Storm/H/storm.h"
 
@@ -159,7 +162,9 @@ void Liquid::CMaterialWater::Render(Liquid::IEnvironment* environment, Liquid::I
     }
 
     C44Matrix matrix;
-    Liquid::SetShaderTransforms(cameraPos, geomFactory->SetTransform(const_cast<C44Matrix*>(transform)) ? matrix : *transform);
+    // (Ours: the matrix kept by a name, for the water made anew. The game passed it straight on.)
+    const C44Matrix& toWorld = geomFactory->SetTransform(const_cast<C44Matrix*>(transform)) ? matrix : *transform;
+    Liquid::SetShaderTransforms(cameraPos, toWorld);
 
     CM2Lighting lighting(*bounds);
     environment->SelectLights(&lighting);
@@ -186,6 +191,9 @@ void Liquid::CMaterialWater::Render(Liquid::IEnvironment* environment, Liquid::I
 
     g_theGxDevicePtr->RsSet(GxRs_VertexShader, Liquid::CMaterialWater::s_vertexShaders[lightCount]);
     g_theGxDevicePtr->RsSet(GxRs_PixelShader, Liquid::CMaterialWater::s_pixelShader);
+#ifdef _WIN32
+    OursWater::BindForWater(&toWorld.a0);  // ours: the numbers and pictures of the water made anew (OursWater.cpp)
+#endif
 
     CGxBuf* vertexBuf = nullptr;
     CGxBuf* indexBuf = nullptr;
@@ -238,7 +246,9 @@ void Liquid::CMaterialWaterNoSpec::Render(Liquid::IEnvironment* environment, Liq
     }
 
     C44Matrix matrix;
-    Liquid::SetShaderTransforms(cameraPos, geomFactory->SetTransform(const_cast<C44Matrix*>(transform)) ? matrix : *transform);
+    // (Ours: the matrix kept by a name, for the water made anew. The game passed it straight on.)
+    const C44Matrix& toWorld = geomFactory->SetTransform(const_cast<C44Matrix*>(transform)) ? matrix : *transform;
+    Liquid::SetShaderTransforms(cameraPos, toWorld);
 
     CM2Lighting lighting(*bounds);
     environment->SelectLights(&lighting);
@@ -265,6 +275,9 @@ void Liquid::CMaterialWaterNoSpec::Render(Liquid::IEnvironment* environment, Liq
 
     g_theGxDevicePtr->RsSet(GxRs_VertexShader, Liquid::CMaterialWaterNoSpec::s_vertexShaders[lightCount]);
     g_theGxDevicePtr->RsSet(GxRs_PixelShader, Liquid::CMaterialWaterNoSpec::s_pixelShader);
+#ifdef _WIN32
+    OursWater::BindForWater(&toWorld.a0);  // ours: the numbers and pictures of the water made anew (OursWater.cpp)
+#endif
 
     CGxBuf* vertexBuf = nullptr;
     CGxBuf* indexBuf = nullptr;

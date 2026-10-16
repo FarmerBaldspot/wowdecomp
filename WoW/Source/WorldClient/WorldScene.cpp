@@ -17,6 +17,8 @@
 #include "WoW/Source/WorldClient/WorldView.h"
 #include "WoW/Source/WorldClient/MapObj.h"
 #include "WoW/Source/WorldClient/MapObjDef.h"
+#include "WoW/Source/WorldClient/OursGraphics.h"     // ours: how far small models are seen
+#include <algorithm>
 
 // STATIC: 0x00ADF350
 float CWorldScene::s_fadeSizeDefault[5] = { 1.0f, 4.0f, 15.0f, 100.0f, 100000.0f };
@@ -137,8 +139,10 @@ void CWorldScene::Initialize() {
 // OFFSET: 0x0078F570
 void CWorldScene::ScaleFadeDist(float scale) {
     CWorldView::s_fadeSize[0] = CWorldScene::s_fadeSizeDefault[0];
-    CWorldScene::s_fadeDist[0] = CWorldScene::s_fadeDistDefault[0];
-    CWorldScene::s_fadeDistMin[0] = CWorldScene::s_fadeDist[0] - CWorldScene::s_fadeRangeDefault[0];
+    // Ours: the smallest class's distance is a setting of ours (OursGraphics.cpp), where the game had 30 yards that no
+    // setting changed; it fades over a sixth of that (the game's 5 yards at 30).
+    CWorldScene::s_fadeDist[0] = OursGraphics::SmallObjectsSeenFrom();
+    CWorldScene::s_fadeDistMin[0] = CWorldScene::s_fadeDist[0] - std::max(CWorldScene::s_fadeRangeDefault[0], CWorldScene::s_fadeDist[0] / 6.0f);
     CWorldView::s_fadeDistSqr[0] = CWorldScene::s_fadeDist[0] * CWorldScene::s_fadeDist[0];
     CWorldScene::s_fadeDistMinSqr[0] = CWorldScene::s_fadeDistMin[0] * CWorldScene::s_fadeDistMin[0];
 
