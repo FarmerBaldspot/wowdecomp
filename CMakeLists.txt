@@ -47,9 +47,12 @@ add_compile_definitions(
     _CRT_SECURE_NO_WARNINGS
 )
 
-# Off by default: the client checks MPQ file MD5s (signaturefile) and GlueXML/FrameXML/AddOn .toc.sig files like the
+# Upstream has it off by default: the client checks MPQ file MD5s (signaturefile) and GlueXML/FrameXML/AddOn .toc.sig files like the
 # original. ON accepts unsigned or modified game data and interface files.
-option(WOWDECOMP_DISABLE_SIGNATURE_CHECKS "Skip MPQ file signature and .toc signature checks" OFF)
+# Ours: ON by default on this branch. Our client changes its own interface (the Video options page) and is never
+# checked against the game's signatures; a build set up without this (Visual Studio's "Open a local folder") made a
+# client that refused to start ("Your login interface files are corrupt").
+option(WOWDECOMP_DISABLE_SIGNATURE_CHECKS "Skip MPQ file signature and .toc signature checks" ON)
 if (WOWDECOMP_DISABLE_SIGNATURE_CHECKS)
     add_compile_definitions(DISABLE_SIGNATURE_CHECKS=1)
 endif ()
