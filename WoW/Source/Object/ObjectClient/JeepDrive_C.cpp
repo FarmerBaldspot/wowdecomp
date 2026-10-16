@@ -30,6 +30,8 @@
 #include "Engine/Source/Services/Texture.h"
 #include "Engine/Source/SoundEngine/SoundEngine.h"
 #include "Engine/Source/Tempest/C2Vector.h"
+#include "Engine/Source/Tempest/CAaBox.h"
+#include "Engine/Source/Tempest/CFacet.h"
 #include "Engine/Source/Tempest/CImVector.h"
 #include "Engine/Source/Model2/M2Model.h"
 #include "Engine/Source/Os/TimeManager.h"
@@ -72,24 +74,31 @@ const float GRAVITY = 19.29f;         // the game's own (VehicleSeat.dbc's Enter
 const float MASS_HEIGHT = 0.95f;      // where its weight is, over the model's foot
 const float INERTIA[3] = { 0.9f, 2.6f, 3.0f }; // about its front, side and up axes
 const float ATTACH = 0.92f;           // how high the springs hold on to the body
-// The body's shell against the ground: points of it (in its own space, x ahead, y left, z up from its foot) that
-// are never to go into the ground.
-const float SHELL[22][3] = {
-    { 2.55f, 1.15f, 0.50f }, { 2.55f, -1.15f, 0.50f }, { -2.55f, 1.15f, 0.50f }, { -2.55f, -1.15f, 0.50f },     // the floor's corners
-    { 2.55f, 1.15f, 1.35f }, { 2.55f, -1.15f, 1.35f }, { -2.55f, 1.15f, 1.35f }, { -2.55f, -1.15f, 1.35f },     // the bonnet's and the back's
-    { 1.10f, 1.10f, 2.15f }, { 1.10f, -1.10f, 2.15f }, { -2.40f, 1.10f, 2.15f }, { -2.40f, -1.10f, 2.15f },     // the roof's corners
-    { -0.60f, 0.0f, 2.20f },                                                                                    // the roof's middle
-    { 2.80f, 0.0f, 0.85f }, { -2.75f, 0.0f, 0.90f },                                                            // the bumpers
-    { 0.0f, 1.28f, 0.70f }, { 0.0f, -1.28f, 0.70f }, { 0.0f, 1.20f, 1.80f }, { 0.0f, -1.20f, 1.80f },           // the doors, low and high
-    { 0.0f, 0.0f, 0.45f },                                                                                      // under its middle
-    { 1.92f, 1.0f, 2.05f }, { 1.92f, -1.0f, 2.05f },                                                            // the windscreen's top
+// The body's hull: boxes that fit the model (measured from its body's points, bone 0, by the editor's
+// content\vehicles\measure_hull.py: the chassis from the floor to the bonnet's top, the frame of the cabin over its
+// back, the roof, and the tow bar that hangs below the back). In the body's own space, x ahead, y left, z up from
+// its foot: middle and half sizes. They are what the world pushes against; the wheels are springs of their own.
+struct HullBox {
+    float middle[3], half[3];
 };
-// (and each wheel's outer face, at its middle: four more, from WHEEL_AT)
-const int SHELL_POINTS = 26;
-const float SHELL_STIFF = 320.0f;      // what the ground pushes back with, a second squared for each yard a point is in it
-const float SHELL_DAMP = 28.0f;        // and against its going in, for each yard a second
-const float SHELL_SLIDES = 0.7f;       // what it drags along the ground with, for what the ground pushes
-const float SHELL_DRAG = 6.0f;         // (and for each yard a second it slides, up to that)
+const HullBox HULL[4] = {
+    { { 0.0f, 0.0f, 1.155f }, { 2.80f, 1.37f, 0.535f } },       // the chassis: x -2.80 .. 2.80, y +-1.37, z 0.62 .. 1.69
+    { { -1.015f, 0.0f, 1.845f }, { 1.785f, 1.35f, 0.155f } },   // the cabin's frame: x -2.80 .. 0.77, z 1.69 .. 2.00
+    { { -0.915f, 0.0f, 2.275f }, { 1.315f, 1.00f, 0.275f } },   // the roof: x -2.23 .. 0.40, y +-1.00, z 2.00 .. 2.55
+    { { -2.445f, 0.0f, 0.505f }, { 0.245f, 1.02f, 0.115f } },   // the tow bar: x -2.69 .. -2.20, z 0.39 .. 0.62
+};
+// What the hull meets: the world's own collision triangles near it (World::GetFacets, as the game's own movement
+// asks for them: ground, buildings, the map's models, objects), once a frame, and at every step the contacts with
+// them, pushed apart by impulses (sequential impulses, the usual way rigid bodies are solved).
+const uint32_t FACET_FLAGS = 0x100111;  // (CMovement_C::GetFacetQueryFlags for a unit the client moves)
+const float DEEPEST = 0.8f;             // a contact deeper than this is something passed through, not touched
+const float RESTITUTION = 0.15f;        // how much of the speed into a surface comes back out of it
+const float BOUNCE_FROM = 2.0f;         // (and only from this many yards a second into it: a touch does not bounce)
+const float FRICTION = 0.55f;           // the body scraping along: what it drags with, for what pushes it out
+const float SETTLE = 0.2f;              // how much of a contact's depth is taken out at each step (as speed)
+const float SLOP = 0.02f;               // how deep it may lie without being pushed out
+const int SOLVER_ROUNDS = 8;
+const size_t MOST_CONTACTS = 96;
 const float REST = 0.47f;             // a spring's length with nothing on it
 const float SHORTEST = 0.10f, LONGEST = 0.62f;
 const float SPRING = 32.0f;           // a wheel's quarter of the weight sinks it 0.15
@@ -131,8 +140,8 @@ struct Driving {
     uint32_t lastAt = 0, toldAt = 0, saidAt = 0;
     bool moved = false;
     float footWas[3] = {};
-    float shellGround[SHELL_POINTS] = {};
-    unsigned traces = 0, told = 0, shellTouches = 0, shellLifted = 0, animated = 0;
+    unsigned traces = 0, told = 0, animated = 0;
+    unsigned facetsNear = 0, mostContacts = 0, framesTouching = 0, rescues = 0;
     // What the model is to show: its axes and foot, and each wheel's turn (in the body's own space).
     bool placed = false;
     float foot[3] = {};
@@ -170,18 +179,6 @@ void cross(const float a[3], const float b[3], float out[3]) {
 
 float dot(const float a[3], const float b[3]) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-// The i-th of the shell's points, in the body's own space.
-void shellPoint(int i, float out[3]) {
-    if (i < 22) {
-        std::memcpy(out, SHELL[i], 3 * sizeof(float));
-        return;
-    }
-    const int wheel = i - 22;
-    out[0] = WHEEL_AT[wheel][0];
-    out[1] = WHEEL_AT[wheel][1] > 0 ? 1.42f : -1.42f;
-    out[2] = WHEEL_RADIUS;
 }
 
 // A point of the body (in its own axes, from the model's foot) in the world.
@@ -262,7 +259,8 @@ void stop(Driving& d, uint32_t now) {
     CGUnit_C* unit = static_cast<CGUnit_C*>(ClntObjMgrObjectPtr(d.unit, TYPEMASK_UNIT, __FILE__, __LINE__));
     freeWheels(unit);
     hushSounds();
-    ConsolePrintf("Jeep: stopped driving (%u heartbeat(s), %u trace(s), the shell touched the ground %u time(s), lifted out %u)", d.told, d.traces, d.shellTouches, d.shellLifted);
+    ConsolePrintf("Jeep: stopped driving (%u heartbeat(s), %u trace(s); the hull touched something in %u frame(s), at most %u contacts at once; put back over the ground %u time(s))",
+        d.told, d.traces, d.framesTouching, d.mostContacts, d.rescues);
     d = Driving {};
     // Keys that are still held now move the player as the game moves them.
     if (CGInputControl* input = CGInputControl::GetActive()) {
@@ -278,6 +276,302 @@ CGUnit_C* jeepOf(const CGUnit_C* unit) {
         return nullptr;
     }
     return const_cast<CGUnit_C*>(unit);
+}
+
+// ---- The hull against the world.
+struct Facet {
+    C3Vector n;                        // its plane: n . p + d = 0, n toward its front
+    float d;
+    C3Vector v[3];
+    float lo[3], hi[3];                // its box
+    bool steep;                        // no ground to stand on: its corners are tested against the hull too
+};
+std::vector<Facet> g_facets;
+World::FacetData g_facetData;
+
+struct Contact {
+    float at[3];                       // where, in the world
+    float n[3];                        // which way the body is pushed
+    float depth;
+    float bounce;                      // the speed out of it the solver aims for
+    float pushed;                      // what it has pushed so far (along n)
+    float dragged[3];                  // and dragged (along the surface)
+};
+
+// A box of the hull in the world: its middle and its three axes (the body's).
+void boxInWorld(const Driving& d, const HullBox& box, float middle[3]) {
+    bodyPoint(d, box.middle, middle);
+}
+
+// The world's triangles that the hull may meet before the next frame.
+void gatherFacets(Driving& d, float dt) {
+    float lo[3] = { 1e9f, 1e9f, 1e9f }, hi[3] = { -1e9f, -1e9f, -1e9f };
+    for (const HullBox& box : HULL) {
+        float middle[3];
+        boxInWorld(d, box, middle);
+        for (int r = 0; r < 3; ++r) {
+            const float reach = std::fabs(d.axes[r][0]) * box.half[0] + std::fabs(d.axes[r][1]) * box.half[1] + std::fabs(d.axes[r][2]) * box.half[2];
+            lo[r] = std::min(lo[r], middle[r] - reach);
+            hi[r] = std::max(hi[r], middle[r] + reach);
+        }
+    }
+    const float speed = std::sqrt(dot(d.v, d.v));
+    const float margin = 0.5f + speed * dt;
+    CAaBox query;
+    query.b = C3Vector(lo[0] - margin, lo[1] - margin, lo[2] - margin);
+    query.t = C3Vector(hi[0] + margin, hi[1] + margin, hi[2] + margin);
+    g_facets.clear();
+    if (!World::GetFacets(&query, &g_facetData, FACET_FLAGS, nullptr)) {
+        d.facetsNear = 0;
+        return;
+    }
+    const uint32_t count = g_facetData.facets.Count();
+    g_facets.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        const CFacet& from = g_facetData.facets.m_data[i];
+        Facet f;
+        f.n = from.plane.n;
+        f.d = from.plane.d;
+        for (int k = 0; k < 3; ++k) {
+            f.v[k] = from.v[k];
+        }
+        for (int r = 0; r < 3; ++r) {
+            const float a = (&f.v[0].x)[r], b = (&f.v[1].x)[r], c = (&f.v[2].x)[r];
+            f.lo[r] = std::min(a, std::min(b, c));
+            f.hi[r] = std::max(a, std::max(b, c));
+        }
+        f.steep = f.n.z < 0.7f;
+        g_facets.push_back(f);
+    }
+    d.facetsNear = count;
+}
+
+// Whether a point that lies in a triangle's plane lies inside it.
+bool insideTriangle(const Facet& f, const float p[3]) {
+    for (int k = 0; k < 3; ++k) {
+        const C3Vector& a = f.v[k];
+        const C3Vector& b = f.v[(k + 1) % 3];
+        const float edge[3] = { b.x - a.x, b.y - a.y, b.z - a.z };
+        const float to[3] = { p[0] - a.x, p[1] - a.y, p[2] - a.z };
+        float side[3];
+        cross(edge, to, side);
+        const float n[3] = { f.n.x, f.n.y, f.n.z };
+        if (dot(side, n) < -1e-4f) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void addContact(std::vector<Contact>& contacts, const float at[3], const float n[3], float depth) {
+    // (The same spot pushed the same way twice, by two triangles that share an edge: only the deeper counts.)
+    for (Contact& c : contacts) {
+        const float apart[3] = { c.at[0] - at[0], c.at[1] - at[1], c.at[2] - at[2] };
+        if (dot(apart, apart) < 0.01f && dot(c.n, n) > 0.95f) {
+            c.depth = std::max(c.depth, depth);
+            return;
+        }
+    }
+    if (contacts.size() >= MOST_CONTACTS) {
+        // Full: it takes the place of the shallowest, if it is deeper.
+        auto shallowest = std::min_element(contacts.begin(), contacts.end(), [](const Contact& a, const Contact& b) { return a.depth < b.depth; });
+        if (shallowest->depth >= depth) {
+            return;
+        }
+        contacts.erase(shallowest);
+    }
+    Contact c = {};
+    std::memcpy(c.at, at, sizeof c.at);
+    std::memcpy(c.n, n, sizeof c.n);
+    c.depth = depth;
+    contacts.push_back(c);
+}
+
+// Where the hull is in the world's triangles now. Two kinds of contact:
+//   - a point of a box's surface (its corners, the middles of its edges and faces, and more along the long chassis)
+//     behind a triangle's face, inside its outline: pushed out along the triangle's normal (ground, walls, slopes,
+//     the side of a rock, a ceiling);
+//   - a corner of a triangle that is no ground to stand on (a post, a wall's edge, a step's edge) inside a box:
+//     pushed out of the box the shortest way.
+void findContacts(const Driving& d, std::vector<Contact>& contacts) {
+    contacts.clear();
+    if (g_facets.empty()) {
+        return;
+    }
+    for (const HullBox& box : HULL) {
+        float middle[3];
+        boxInWorld(d, box, middle);
+        float lo[3], hi[3];
+        for (int r = 0; r < 3; ++r) {
+            const float reach = std::fabs(d.axes[r][0]) * box.half[0] + std::fabs(d.axes[r][1]) * box.half[1] + std::fabs(d.axes[r][2]) * box.half[2];
+            lo[r] = middle[r] - reach - DEEPEST;
+            hi[r] = middle[r] + reach + DEEPEST;
+        }
+        // Its points: on a grid over its surface, a point every 1.4 yards or so along each side (at least its corners
+        // and the middles of its edges and faces).
+        int steps[3];
+        for (int k = 0; k < 3; ++k) {
+            steps[k] = std::max(2, static_cast<int>(std::ceil(2.0f * box.half[k] / 1.4f)));
+        }
+        for (const Facet& f : g_facets) {
+            if (f.hi[0] < lo[0] || f.lo[0] > hi[0] || f.hi[1] < lo[1] || f.lo[1] > hi[1] || f.hi[2] < lo[2] || f.lo[2] > hi[2]) {
+                continue;
+            }
+            const float n[3] = { f.n.x, f.n.y, f.n.z };
+            // (Only a face that the box's middle is in front of: the box is not pushed through a wall from its back.)
+            if (dot(n, middle) + f.d <= 0.0f) {
+                continue;
+            }
+            for (int i = 0; i <= steps[0]; ++i) {
+                for (int j = 0; j <= steps[1]; ++j) {
+                    for (int k = 0; k <= steps[2]; ++k) {
+                        if (i != 0 && i != steps[0] && j != 0 && j != steps[1] && k != 0 && k != steps[2]) {
+                            continue;              // (inside the box: no point of its surface)
+                        }
+                        const float own[3] = { box.middle[0] + box.half[0] * (2.0f * i / steps[0] - 1.0f),
+                                               box.middle[1] + box.half[1] * (2.0f * j / steps[1] - 1.0f),
+                                               box.middle[2] + box.half[2] * (2.0f * k / steps[2] - 1.0f) };
+                        float p[3];
+                        bodyPoint(d, own, p);
+                        const float behind = -(dot(n, p) + f.d);
+                        if (behind <= 0.0f || behind > DEEPEST) {
+                            continue;
+                        }
+                        const float onPlane[3] = { p[0] + n[0] * behind, p[1] + n[1] * behind, p[2] + n[2] * behind };
+                        if (insideTriangle(f, onPlane)) {
+                            addContact(contacts, p, n, behind);
+                        }
+                    }
+                }
+            }
+            if (!f.steep) {
+                continue;
+            }
+            // The triangle's corners, and points along its edges every half yard, inside the box.
+            for (int e = 0; e < 3; ++e) {
+                const C3Vector& a = f.v[e];
+                const C3Vector& b = f.v[(e + 1) % 3];
+                const float length = std::sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
+                const int samples = std::max(1, static_cast<int>(length / 0.5f));
+                for (int t = 0; t < samples; ++t) {
+                    const float share = static_cast<float>(t) / samples;
+                    const float q[3] = { a.x + (b.x - a.x) * share - middle[0], a.y + (b.y - a.y) * share - middle[1], a.z + (b.z - a.z) * share - middle[2] };
+                    float local[3], into[3];
+                    bool inside = true;
+                    for (int c = 0; c < 3 && inside; ++c) {
+                        local[c] = d.axes[0][c] * q[0] + d.axes[1][c] * q[1] + d.axes[2][c] * q[2];
+                        into[c] = box.half[c] - std::fabs(local[c]);
+                        inside = into[c] > 0.0f;
+                    }
+                    if (!inside) {
+                        continue;
+                    }
+                    int axis = 0;
+                    for (int c = 1; c < 3; ++c) {
+                        if (into[c] < into[axis]) {
+                            axis = c;
+                        }
+                    }
+                    if (into[axis] > DEEPEST) {
+                        continue;
+                    }
+                    const float away = local[axis] > 0.0f ? -1.0f : 1.0f;      // the box goes the other way from the point
+                    const float push[3] = { d.axes[0][axis] * away, d.axes[1][axis] * away, d.axes[2][axis] * away };
+                    if (dot(push, n) < -0.5f) {
+                        continue;           // (a point of a triangle that faces away: the far side of something)
+                    }
+                    const float at[3] = { q[0] + middle[0], q[1] + middle[1], q[2] + middle[2] };
+                    addContact(contacts, at, push, into[axis]);
+                }
+            }
+        }
+    }
+}
+
+// What the body's turning does for an impulse at an arm: its inverse inertia in the world, applied.
+void turnFor(const Driving& d, const float x[3], float out[3]) {
+    float local[3];
+    for (int c = 0; c < 3; ++c) {
+        local[c] = (d.axes[0][c] * x[0] + d.axes[1][c] * x[1] + d.axes[2][c] * x[2]) / INERTIA[c];
+    }
+    for (int r = 0; r < 3; ++r) {
+        out[r] = d.axes[r][0] * local[0] + d.axes[r][1] * local[1] + d.axes[r][2] * local[2];
+    }
+}
+
+// How much an impulse along a way at an arm changes the speed there along the same way (for a mass of 1).
+float stiffness(const Driving& d, const float arm[3], const float way[3]) {
+    float a[3], b[3], c[3];
+    cross(arm, way, a);
+    turnFor(d, a, b);
+    cross(b, arm, c);
+    return 1.0f + dot(way, c);
+}
+
+void push(Driving& d, const float arm[3], const float impulse[3]) {
+    for (int k = 0; k < 3; ++k) {
+        d.v[k] += impulse[k];
+    }
+    float a[3], b[3];
+    cross(arm, impulse, a);
+    turnFor(d, a, b);
+    for (int k = 0; k < 3; ++k) {
+        d.w[k] += b[k];
+    }
+}
+
+void speedAt(const Driving& d, const float arm[3], float out[3]) {
+    cross(d.w, arm, out);
+    for (int k = 0; k < 3; ++k) {
+        out[k] += d.v[k];
+    }
+}
+
+// The contacts pushed apart, a few rounds over all of them.
+void solveContacts(Driving& d, std::vector<Contact>& contacts, float h) {
+    for (Contact& c : contacts) {
+        const float arm[3] = { c.at[0] - d.at[0], c.at[1] - d.at[1], c.at[2] - d.at[2] };
+        float v[3];
+        speedAt(d, arm, v);
+        const float into = -dot(v, c.n);
+        const float settle = std::min(4.0f, SETTLE / h * std::max(0.0f, c.depth - SLOP));
+        c.bounce = std::max(settle, into > BOUNCE_FROM ? RESTITUTION * into : 0.0f);
+    }
+    for (int round = 0; round < SOLVER_ROUNDS; ++round) {
+        for (Contact& c : contacts) {
+            const float arm[3] = { c.at[0] - d.at[0], c.at[1] - d.at[1], c.at[2] - d.at[2] };
+            float v[3];
+            speedAt(d, arm, v);
+            // Out of it.
+            const float out = dot(v, c.n);
+            float more = (c.bounce - out) / stiffness(d, arm, c.n);
+            const float total = std::max(0.0f, c.pushed + more);
+            more = total - c.pushed;
+            c.pushed = total;
+            const float impulse[3] = { c.n[0] * more, c.n[1] * more, c.n[2] * more };
+            push(d, arm, impulse);
+            // Along it: the scrape, no more than the friction lets it for what pushes it out.
+            speedAt(d, arm, v);
+            const float alongN = dot(v, c.n);
+            float slide[3] = { v[0] - c.n[0] * alongN, v[1] - c.n[1] * alongN, v[2] - c.n[2] * alongN };
+            const float sliding = std::sqrt(dot(slide, slide));
+            if (sliding < 1e-5f) {
+                continue;
+            }
+            const float way[3] = { slide[0] / sliding, slide[1] / sliding, slide[2] / sliding };
+            const float stop = sliding / stiffness(d, arm, way);
+            float drag[3] = { c.dragged[0] - way[0] * stop, c.dragged[1] - way[1] * stop, c.dragged[2] - way[2] * stop };
+            const float most = FRICTION * c.pushed, dragging = std::sqrt(dot(drag, drag));
+            if (dragging > most) {
+                for (float& x : drag) {
+                    x *= most / dragging;
+                }
+            }
+            const float change[3] = { drag[0] - c.dragged[0], drag[1] - c.dragged[1], drag[2] - c.dragged[2] };
+            std::memcpy(c.dragged, drag, sizeof drag);
+            push(d, arm, change);
+        }
+    }
 }
 
 void physics(Driving& d, float dt, float throttle, float steering) {
@@ -297,13 +591,10 @@ void physics(Driving& d, float dt, float throttle, float steering) {
         d.wheels[i].onGround = trace(d, from, to, d.groundFlags, hit);
         d.wheels[i].hit = C3Vector(hit[0], hit[1], hit[2]);
     }
-    // The ground under each of the shell's points: from 2.5 yards over it to 2 under.
-    for (int i = 0; i < SHELL_POINTS; ++i) {
-        float own[3], p[3];
-        shellPoint(i, own);
-        bodyPoint(d, own, p);
-        d.shellGround[i] = groundAt(d, p[0], p[1], p[2] + 2.5f, p[2] - 2.0f);
-    }
+    // The world's triangles near the hull.
+    gatherFacets(d, dt);
+    std::vector<Contact> contacts;
+    bool touched = false;
     // (Under the body, for when all the wheels find nothing: the ground far below, or none at all.)
     const bool anyGround = d.wheels[0].onGround || d.wheels[1].onGround || d.wheels[2].onGround || d.wheels[3].onGround;
     float below = -1e9f;
@@ -404,48 +695,6 @@ void physics(Driving& d, float dt, float throttle, float steering) {
             }
             wheelNow.spin += u / WHEEL_RADIUS * h;
         }
-        // The shell: a point in the ground is pushed back out (up, by how far in it is and how fast it goes in),
-        // where it is, so that the jeep tips and rolls over as it lands; and drags along the ground.
-        for (int i = 0; i < SHELL_POINTS; ++i) {
-            if (d.shellGround[i] < -1e8f) {
-                continue;
-            }
-            float own[3], p[3];
-            shellPoint(i, own);
-            bodyPoint(d, own, p);
-            const float in = d.shellGround[i] - p[2];
-            if (in <= 0.0f) {
-                continue;
-            }
-            const float arm[3] = { p[0] - d.at[0], p[1] - d.at[1], p[2] - d.at[2] };
-            float spinV[3], pv[3];
-            cross(d.w, arm, spinV);
-            for (int k = 0; k < 3; ++k) {
-                pv[k] = d.v[k] + spinV[k];
-            }
-            const float pushed = std::max(0.0f, std::min(SHELL_STIFF * in - SHELL_DAMP * pv[2], 8.0f * GRAVITY));
-            if (pushed <= 0.0f) {
-                continue;
-            }
-            float f[3] = { 0.0f, 0.0f, pushed };
-            const float sliding = std::sqrt(pv[0] * pv[0] + pv[1] * pv[1]);
-            if (sliding > 1e-3f) {
-                const float drag = std::min(SHELL_SLIDES * pushed, SHELL_DRAG * sliding);
-                f[0] -= pv[0] / sliding * drag;
-                f[1] -= pv[1] / sliding * drag;
-            }
-            for (int k = 0; k < 3; ++k) {
-                force[k] += f[k];
-            }
-            float t[3];
-            cross(arm, f, t);
-            for (int k = 0; k < 3; ++k) {
-                torque[k] += t[k];
-            }
-            if (step == 0) {
-                ++d.shellTouches;
-            }
-        }
         // The air.
         const float speed = std::sqrt(dot(d.v, d.v));
         for (int k = 0; k < 3; ++k) {
@@ -476,10 +725,17 @@ void physics(Driving& d, float dt, float throttle, float steering) {
                 x *= 1.0f - 0.3f * h;           // in the air it keeps its spin, nearly
             }
         }
+        // What the hull touches pushes it back, where it touches.
+        findContacts(d, contacts);
+        if (!contacts.empty()) {
+            solveContacts(d, contacts, h);
+            touched = true;
+            d.mostContacts = std::max(d.mostContacts, static_cast<unsigned>(contacts.size()));
+        }
         const float spinning = std::sqrt(dot(d.w, d.w));
-        if (spinning > 4.0f) {
+        if (spinning > 8.0f) {
             for (float& x : d.w) {
-                x *= 4.0f / spinning;
+                x *= 8.0f / spinning;
             }
         }
         for (int k = 0; k < 3; ++k) {
@@ -495,90 +751,16 @@ void physics(Driving& d, float dt, float throttle, float steering) {
         straighten(d.axes);
     }
 
-    // A point still deep in the ground lifts the body out by as much, and it stops going down: the push alone, in
-    // one hard landing, may not be enough.
-    float deepest = 0.0f;
-    for (int i = 0; i < SHELL_POINTS; ++i) {
-        if (d.shellGround[i] < -1e8f) {
-            continue;
-        }
-        float own[3], p[3];
-        shellPoint(i, own);
-        bodyPoint(d, own, p);
-        deepest = std::max(deepest, d.shellGround[i] - p[2]);
+    if (touched) {
+        ++d.framesTouching;
     }
-    if (deepest > 0.25f) {
-        d.at[2] += deepest - 0.25f;
+    // (Should it ever have gone through the ground after all, its middle under the ground under it: it is put back
+    // over it. The hull's contacts are what keep it out; this is only for what they missed.)
+    const float under = groundAt(d, d.at[0], d.at[1], d.at[2] + 3.0f, d.at[2] - 3.0f);
+    if (under > -1e8f && d.at[2] < under - 0.1f) {
+        d.at[2] = under + MASS_HEIGHT;
         d.v[2] = std::max(d.v[2], 0.0f);
-        ++d.shellLifted;
-    }
-
-    // What is in its way: from its middle out to points of its outline, at the height of its bumper and of its
-    // doors. What a trace meets is inside the jeep: the jeep is pushed out of it, and what of its speed went into
-    // it stops, with a little bounce.
-    static const float OUTLINE[12][2] = { { 2.75f, 1.30f }, { 2.75f, -1.30f }, { -2.75f, 1.30f }, { -2.75f, -1.30f }, { 2.85f, 0.0f }, { -2.85f, 0.0f },
-        { 1.0f, 1.45f }, { 1.0f, -1.45f }, { -0.9f, 1.45f }, { -0.9f, -1.45f }, { 2.0f, 1.42f }, { 2.0f, -1.42f } };
-    float shove[3] = { 0, 0, 0 };
-    for (float height : { 0.75f, 1.45f }) {
-        const float middleAt[3] = { 0.0f, 0.0f, height };
-        float from[3];
-        bodyPoint(d, middleAt, from);
-        for (const auto& corner : OUTLINE) {
-            const float edgeAt[3] = { corner[0], corner[1], height };
-            float to[3], hit[3];
-            bodyPoint(d, edgeAt, to);
-            if (!trace(d, from, to, 0x100171, hit)) {
-                continue;
-            }
-            // (Low down, what it meets may be the ground going up before it: a slope the wheels take.)
-            if (height < 1.0f) {
-                const float ground = groundAt(d, hit[0], hit[1], hit[2] + 1.2f, hit[2] - 1.2f);
-                if (ground > hit[2] - 0.6f && ground < hit[2] + 0.6f) {
-                    continue;
-                }
-            }
-            float way[3] = { to[0] - from[0], to[1] - from[1], 0.0f };
-            const float length = std::sqrt(way[0] * way[0] + way[1] * way[1]);
-            if (length < 1e-3f) {
-                continue;
-            }
-            way[0] /= length;
-            way[1] /= length;
-            const float inside = (to[0] - hit[0]) * way[0] + (to[1] - hit[1]) * way[1];
-            for (int k = 0; k < 2; ++k) {
-                const float out = -way[k] * inside;
-                if (std::fabs(out) > std::fabs(shove[k])) {
-                    shove[k] = out;
-                }
-            }
-            const float into = d.v[0] * way[0] + d.v[1] * way[1];
-            if (into > 0) {
-                // A blow bounces it back a little and turns it by where it was struck; a touch only stops what
-                // goes into it.
-                const bool blow = into > 2.0f;
-                const float back = blow ? 1.2f : 1.0f;
-                d.v[0] -= back * into * way[0];
-                d.v[1] -= back * into * way[1];
-                if (blow) {
-                    const float arm[3] = { to[0] - d.at[0], to[1] - d.at[1], 0.0f };
-                    float struck[3] = { -way[0] * into, -way[1] * into, 0.0f }, turn[3];
-                    cross(arm, struck, turn);
-                    d.w[2] += turn[2] * 0.15f;
-                }
-            }
-        }
-    }
-    // (Out of it by most of the way, not all of it at once: it settles against what it touches.)
-    const float shoved = std::sqrt(shove[0] * shove[0] + shove[1] * shove[1]);
-    if (shoved > 0.03f) {
-        d.at[0] += shove[0] * 0.6f * (shoved - 0.03f) / shoved;
-        d.at[1] += shove[1] * 0.6f * (shoved - 0.03f) / shoved;
-    }
-    // Never under the ground: the body's middle is kept over what is under it.
-    const float under = groundAt(d, d.at[0], d.at[1], d.at[2] + 1.5f, d.at[2] - 3.0f);
-    if (under > -1e8f && d.at[2] < under + 0.35f) {
-        d.at[2] = under + 0.35f;
-        d.v[2] = std::max(d.v[2], 0.0f);
+        ++d.rescues;
     }
 }
 
@@ -1035,8 +1217,8 @@ void Update(uint32_t now) {
     }
 
     if (now - d.saidAt > 5000) {
-        ConsolePrintf("Jeep: %.1f yd/s, springs %.2f %.2f %.2f %.2f, steer %.2f, %u heartbeat(s), %u frame(s) drawn by it; %u thump(s); dust: %u thrown, %u in the air, the ground's colour %.2f %.2f %.2f",
-            speed, d.wheels[0].length, d.wheels[1].length, d.wheels[2].length, d.wheels[3].length, d.steer, d.told, d.animated, d.thumps,
+        ConsolePrintf("Jeep: %.1f yd/s, springs %.2f %.2f %.2f %.2f, steer %.2f, %u heartbeat(s), %u frame(s) drawn by it; %u triangle(s) near, the hull touching in %u frame(s), at most %u contacts, put back %u time(s); %u thump(s); dust: %u thrown, %u in the air, the ground's colour %.2f %.2f %.2f",
+            speed, d.wheels[0].length, d.wheels[1].length, d.wheels[2].length, d.wheels[3].length, d.steer, d.told, d.animated, d.facetsNear, d.framesTouching, d.mostContacts, d.rescues, d.thumps,
             g_dustThrown, static_cast<unsigned>(g_puffs.size()), g_wheelEarth[3][0], g_wheelEarth[3][1], g_wheelEarth[3][2]);
         d.saidAt = now;
     }
