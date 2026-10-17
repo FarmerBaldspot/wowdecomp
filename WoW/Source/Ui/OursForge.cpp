@@ -10,6 +10,7 @@
 #include "Engine/Source/lua-5.1/src/lua.h"
 #include "WoW/Source/DB/DBClient/DBClient.h"
 #include "WoW/Source/DB/OursClassNames.h"
+#include "WoW/Source/Object/ObjectClient/Player_C.h"
 #include "WoW/Source/ObjectMgrClient/ObjectMgrClient.h"
 #include "WoW/Source/DB/Rec/SpellIconRec.h"
 #include "WoW/Source/DB/Rec/SpellRec.h"
@@ -86,6 +87,22 @@ namespace {
         return 1;
     }
 
+    // SpellforgeWhereAmI(): the map the character is on and where on it (the server's coordinates), and its facing;
+    // nothing if there is no character (a teleport of the forge's to "here")
+    int32_t Script_SpellforgeWhereAmI(lua_State* L) {
+        CGPlayer_C* player = ClntObjMgrGetActivePlayerObj();
+        if (!player) {
+            return 0;
+        }
+        C3Vector const position = player->GetPosition();
+        lua_pushnumber(L, ClntObjMgrGetMapID());
+        lua_pushnumber(L, position.x);
+        lua_pushnumber(L, position.y);
+        lua_pushnumber(L, position.z);
+        lua_pushnumber(L, player->GetFacing());
+        return 5;
+    }
+
     // SpellforgeIconTexture(id): the texture of the SpellIcon row of that number, nil if there is none
     int32_t Script_SpellforgeIconTexture(lua_State* L) {
         int32_t const id = static_cast<int32_t>(luaL_checknumber(L, 1));
@@ -105,6 +122,7 @@ void LoadWindow(CStatus* status) {
     FrameScript_RegisterFunction("SpellforgeIconTexture", Script_SpellforgeIconTexture);
     FrameScript_RegisterFunction("SpellforgeFindSpells", Script_SpellforgeFindSpells);
     FrameScript_RegisterFunction("SpellforgeIsForged", Script_SpellforgeIsForged);
+    FrameScript_RegisterFunction("SpellforgeWhereAmI", Script_SpellforgeWhereAmI);
 
     // (Not counted into the game's own interface's signature: a digest of its own, thrown away.)
     MD5_CTX md5;

@@ -115,6 +115,18 @@ R.KINDS = {
 	{ key = "feign_death", label = "Feign death", word = "feign-death", amount = "none", aura = true },
 	{ key = "leave_combat", label = "Leave combat", word = "leave-combat", amount = "none" },
 	{ key = "damage_versus", label = "More damage to a type", word = "damage-versus", amount = "one", aura = true, finds = "type", lowLabel = "%" },
+	-- travel; place: home or a place in the place of "on" (a teleport); a mount is a creature's look, faster, and flying
+	{ key = "teleport", label = "Teleport", word = "teleport", amount = "none", place = true },
+	{ key = "blink", label = "Blink forward", word = "blink", amount = "one", lowLabel = "yd" },
+	{ key = "leap_back", label = "Leap back", word = "leap-back", amount = "two", lowLabel = "away", highLabel = "up" },
+	{ key = "water_walk", label = "Walk on water", word = "water-walk", amount = "none", aura = true },
+	{ key = "water_breathing", label = "Breathe under water", word = "water-breathing", amount = "none", aura = true },
+	{ key = "slow_fall", label = "Fall slowly", word = "slow-fall", amount = "none", aura = true },
+	{ key = "hover", label = "Hover", word = "hover", amount = "none", aura = true },
+	{ key = "fly", label = "Fly", word = "fly", amount = "none", aura = true },
+	{ key = "flight_speed", label = "Flying speed", word = "flight-speed", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "swim_speed", label = "Swimming speed", word = "swim-speed", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "mount", label = "Mount", word = "mount", amount = "two", creature = true, lasting = true, lowLabel = "%", highLabel = "fly %" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -127,9 +139,10 @@ R.KINDS = {
 	{ key = "shape_form", label = "Take a form", word = "shape", amount = "none", form = true, shape = true, lasting = true },
 	{ key = "shape_creature", label = "Take a creature's shape", word = "shape", amount = "none", creature = true, shape = true, lasting = true },
 };
-R.FORMS = { "cat", "bear", "tree", "moonkin", "travel", "aquatic", "ghost-wolf", "shadow", "metamorphosis", "stealth" };
+R.FORMS = { "cat", "bear", "tree", "moonkin", "travel", "aquatic", "ghost-wolf", "shadow", "metamorphosis", "stealth", "flight",
+	"swift-flight" };
 R.FORM_LABELS = { "Cat", "Bear", "Tree of Life", "Moonkin", "Travel", "Aquatic", "Ghost Wolf", "Shadowform", "Metamorphosis",
-	"Stealth (a bar of its own)" };
+	"Stealth (a bar of its own)", "Flight", "Swift Flight" };
 R.POWERS = { "keep", "mana", "rage", "energy" };
 R.POWER_LABELS = { "Your own", "Mana", "Rage", "Energy" };
 R.CREATURE_TYPES = { "beast", "dragonkin", "demon", "elemental", "giant", "undead", "humanoid", "critter", "mechanical" };
@@ -188,6 +201,8 @@ R.KIND_GROUPS = {
 		"threat", "vulnerable" } },
 	{ label = "Stealth and senses", keys = { "stealth", "invisible", "see_stealth", "see_invisible", "track", "track_stealthed", "marked",
 		"lose_threat", "aggro_range", "feign_death", "leave_combat", "damage_versus" } },
+	{ label = "Travel", keys = { "teleport", "blink", "leap_back", "water_walk", "water_breathing", "slow_fall", "hover", "fly",
+		"flight_speed", "swim_speed", "mount" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
@@ -204,6 +219,7 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
 	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus" } },
+	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -245,6 +261,11 @@ function R.NewEffect (key)
 	if ( kind.key == "see_invisible" ) then effect.low = 1000; end
 	if ( kind.key == "lose_threat" ) then effect.low = 1000; end
 	if ( kind.key == "aggro_range" ) then effect.low = -10; end
+	if ( kind.place ) then effect.home = true; end
+	if ( kind.key == "blink" ) then effect.low = 20; end
+	if ( kind.key == "leap_back" ) then effect.low, effect.high = 20, 7.5; end
+	if ( kind.key == "mount" ) then effect.low, effect.high = 60, 0; end
+	if ( kind.key == "flight_speed" or kind.key == "swim_speed" ) then effect.low = 50; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -312,6 +333,11 @@ local function specialText (effect, kind)
 		if ( seconds > 0 ) then table.insert(parts, "(for " .. number(seconds) .. ")"); end
 	elseif ( kind.key == "summon_pet" ) then
 		table.insert(parts, number(effect.creature));
+		if ( seconds > 0 ) then table.insert(parts, "(for " .. number(seconds) .. ")"); end
+	elseif ( kind.key == "mount" ) then
+		table.insert(parts, number(effect.creature));
+		table.insert(parts, number(tonumber(effect.low) or 60));
+		if ( (tonumber(effect.high) or 0) > 0 ) then table.insert(parts, number(effect.high)); end
 		if ( seconds > 0 ) then table.insert(parts, "(for " .. number(seconds) .. ")"); end
 	elseif ( kind.key == "summon" ) then
 		table.insert(parts, number(effect.creature));
@@ -397,6 +423,13 @@ effectText = function (effect)
 	end
 	if ( kind.finds ) then
 		table.insert(parts, effect.track or (kind.finds == "type" and "undead" or "beast"));
+	end
+	if ( kind.place ) then
+		if ( effect.home or not effect.map ) then
+			table.insert(parts, "home");
+		else
+			for _, v in ipairs({ effect.map, effect.x, effect.y, effect.z, effect.facing or 0 }) do table.insert(parts, number(v)); end
+		end
 	end
 	if ( kind.changes ) then
 		table.insert(parts, effect.change or "damage");
@@ -701,6 +734,8 @@ readEffect = function (node, dropped)
 			effect.form = child.word;
 		elseif ( kind.finds and child.word ) then
 			effect.track = child.word;
+		elseif ( kind.place and child.word == "home" ) then
+			effect.home = true;
 		elseif ( kind.mechanics and child.word and R.MECHANIC[child.word] ) then
 			if ( not effect.readMechanics ) then effect.mechanics = {}; effect.readMechanics = true; end
 			table.insert(effect.mechanics, child.word);
@@ -709,6 +744,11 @@ readEffect = function (node, dropped)
 	if ( kind.creature ) then
 		-- the creature, then (summon) how many
 		effect.creature = table.remove(numbers, 1) or 0;
+	end
+	if ( kind.place and #numbers >= 4 ) then
+		effect.home = false;
+		effect.map, effect.x, effect.y, effect.z, effect.facing = numbers[1], numbers[2], numbers[3], numbers[4], numbers[5] or 0;
+		numbers = {};
 	end
 	if ( kind.lasting ) then effect.seconds = effect.seconds or 0; end
 	if ( kind.amount == "range" ) then
@@ -1466,6 +1506,22 @@ for i = 1, ROWS do
 	end);
 	row.track = dropDown("OursForgeTrack" .. i, frame, 90, M + 172, y, itemsOf(R.TRACKS, R.TRACK_LABELS),
 		function (v) effectsShown()[i].track = v; end);
+	-- a teleport's: home, or here (where the character stands when it is picked), or the place it has
+	row.place = dropDown("OursForgePlace" .. i, frame, 100, M + 172, y, {}, function (v)
+		local effect = effectsShown()[i];
+		if ( v == "home" ) then
+			effect.home = true;
+		elseif ( v == "here" ) then
+			local map, x, y, z, facing;
+			if ( SpellforgeWhereAmI ) then map, x, y, z, facing = SpellforgeWhereAmI(); end
+			if ( map ) then
+				local function round (n) return math.floor(n * 10 + 0.5) / 10; end
+				effect.home = false;
+				effect.map, effect.x, effect.y, effect.z, effect.facing = map, round(x), round(y), round(z), round(facing);
+			end
+		end
+		showEffects();
+	end);
 	row.form = dropDown("OursForgeForm" .. i, frame, 100, M + 172, y, itemsOf(R.FORMS, R.FORM_LABELS),
 		function (v) effectsShown()[i].form = v; end);
 	row.element = dropDown("OursForgeElement" .. i, frame, 80, M + 172, y, itemsOf(R.ELEMENTS),
@@ -1665,8 +1721,17 @@ local function setRow (row, effect)
 	row.every:SetText(number(effect.every or 0));
 
 	-- what is made at you has no "on": a creature, a form or an element in its place
-	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds));
+	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds or kind.place));
 	show(row.track, kind.finds);
+	show(row.place, kind.place);
+	if ( kind.place ) then
+		local items = { { value = "home", label = "Home (hearthstone)" }, { value = "here", label = "Here (where you stand)" } };
+		if ( not effect.home and effect.map ) then
+			table.insert(items, 1, { value = "place", label = string.format("Map %d (%d, %d)", effect.map, effect.x or 0, effect.y or 0) });
+		end
+		row.place.items = items;
+		row.place:SetValue((effect.home or not effect.map) and "home" or "place");
+	end
 	if ( kind.finds ) then
 		-- (a creature type only, for more damage to it)
 		local values, labels = {}, {};
@@ -1776,7 +1841,7 @@ local function placeRows (top)
 	for i, row in ipairs(effectRows) do
 		local y = top - (i - 1) * 52;
 		rowY[row] = y;
-		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag, row.track }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
+		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag, row.track, row.place }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
 		at(row.remove, M + 300, y - 2);
 		at(row.when, M + 290, y - 26);
 		at(row.creature, M + 156, y - 2);

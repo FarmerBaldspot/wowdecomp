@@ -387,6 +387,34 @@ do
 	table.insert(FORGE_TEXTS, text);
 end
 
+-- 11e. Travel: a teleport home, or here (where the character stands); a mount that flies
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "teleport");
+CHECK(OursForgePlace1.shown and not OursForgeOn1.shown, "a teleport: where it goes in the place of \"on\"");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(teleport home%)"), "home at first: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+SpellforgeWhereAmI = function () return 0, -9105.43, -1674.18, 112.61, 3.14159; end
+Mock.pick(OursForgePlace1, "here");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(teleport 0 %-9105%.4 %-1674%.2 112%.6 3%.1%)"),
+	"here is where the character stands: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+CHECK(OursForgePlace1.menuText and string.find(OursForgePlace1.menuText, "Map 0"), "and the menu says the place: " .. tostring(OursForgePlace1.menuText));
+SpellforgeWhereAmI = nil;
+do
+	local back = R.FromText('(spell (name "Away") (target self) (cast 10) (teleport 571 5804.1 624.7 647.8 1.6) '
+		.. '(mount 18363 60 150) (water-walk (for 600)) (leap-back 20 7.5))');
+	CHECK(back and back.effects[1].kind == "teleport" and back.effects[1].map == 571 and back.effects[1].home == false,
+		"a teleport to a place read back");
+	CHECK(back and back.effects[2].kind == "mount" and back.effects[2].creature == 18363 and back.effects[2].low == 60
+		and back.effects[2].high == 150, "a flying mount read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(teleport 571 5804%.1 624%.7 647%.8 1%.6%)") and string.find(text, "%(mount 18363 60 150%)")
+		and string.find(text, "%(leap%-back 20 7%.5%)"), "and written again: " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
 -- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
 Mock.pick(OursForgeKind1, "summon_pet");
 OursForgeCreature1.scripts.OnClick(OursForgeCreature1);
@@ -558,7 +586,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Always on: speed,Always on: senses,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Always on: speed,Always on: senses,Always on: travel,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");
