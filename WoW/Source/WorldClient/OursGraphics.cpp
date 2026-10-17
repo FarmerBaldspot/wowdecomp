@@ -45,6 +45,10 @@ const Setting SETTINGS[] = {
     { "oursSkyClouds",        "Ours: how much cloud the new sky has, in percent of the zone's own",   "100", -2, 1 },
     { "oursSkyCloudSpeed",    "Ours: how fast its clouds drift, in percent",                          "100", -2, 1 },
     { "oursSkySunGlow",       "Ours: how strongly the sun glows in it, in percent",                   "100", -2, 1 },
+    { "oursSkyStars",         "Ours: how bright its stars are, in percent (0: the game's own stars)", "100", -2, 1 },
+    { "oursSkyMilkyWay",      "Ours: how bright the Milky Way is, in percent",                         "100", -2, 1 },
+    { "oursSkyTwinkle",       "Ours: how much the stars twinkle, in percent",                          "100", -2, 1 },
+    { "oursSkyShootingStars", "Ours: how often a star shoots, in percent",                             "100", -2, 1 },
 };
 const int32_t SMALL_SEEN = -1, READ_BY_SKY = -2;
 

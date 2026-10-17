@@ -13,7 +13,7 @@ local cvars, defaults = {}, {}
 local function register (name, value) cvars[name] = value; defaults[name] = value end
 register("oursWater", "1")
 register("oursSky", "1")
-for _, name in ipairs({ "oursWaterWaves", "oursWaterClarity", "oursWaterReflection", "oursWaterGlitter", "oursWaterBedLight", "oursWaterFoam", "oursWaterFoamWidth", "oursSmallObjectDist", "oursSkyClouds", "oursSkyCloudSpeed", "oursSkySunGlow" }) do
+for _, name in ipairs({ "oursWaterWaves", "oursWaterClarity", "oursWaterReflection", "oursWaterGlitter", "oursWaterBedLight", "oursWaterFoam", "oursWaterFoamWidth", "oursSmallObjectDist", "oursSkyClouds", "oursSkyCloudSpeed", "oursSkySunGlow", "oursSkyStars", "oursSkyMilkyWay", "oursSkyTwinkle", "oursSkyShootingStars" }) do
 	register(name, "100")
 end
 function GetCVar (name) assert(cvars[name], "no CVar " .. tostring(name)); return cvars[name] end
@@ -205,11 +205,16 @@ skyPage.scripts.OnEvent(skyPage, "PLAYER_ENTERING_WORLD")
 skyPage:Show()
 VideoOptionsFrameApply:Disable()
 skyPage.refresh(skyPage)
-expect("Sky: a tick and three sliders, the tick on", #skyPage.controls == 4 and skyTick:GetChecked() and OursSkyPanelSkyText.text == "New Sky")
+expect("Sky: a tick and seven sliders (clouds, speed, glow, stars, Milky Way, twinkle, shooting stars), the tick on", #skyPage.controls == 8 and skyTick:GetChecked() and OursSkyPanelSkyText.text == "New Sky")
 expect("Sky: the sliders' names and ends", OursSkyPanelCloudsText.text == "Clouds" and OursSkyPanelSunGlowText.text == "Sun Glow" and clouds.most == 200 and OursSkyPanelCloudSpeed.most == 300)
+expect("Sky: the night's sliders' names and ends", OursSkyPanelStarsText.text == "Stars" and OursSkyPanelMilkyWayText.text == "Milky Way"
+    and OursSkyPanelTwinkleText.text == "Twinkle" and OursSkyPanelShootingStarsText.text == "Shooting Stars" and OursSkyPanelStars.most == 300
+    and OursSkyPanelShootingStars.most == 400)
 methods.SetValue(clouds, 60)
+methods.SetValue(OursSkyPanelStars, 150)
 skyPage.okay(skyPage)
 expect("Sky: Okay sets the clouds to 60", cvars.oursSkyClouds == "60")
+expect("Sky: Okay sets the stars to 150", cvars.oursSkyStars == "150")
 skyTick:Click()
 expect("Sky: unticked, the sliders are greyed", not clouds.enabled)
 skyPage.okay(skyPage)

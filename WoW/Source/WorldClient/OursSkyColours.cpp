@@ -143,6 +143,14 @@ float setting(const char* name, float otherwise) {
 
 }  // namespace
 
+bool OwnStars() {
+#ifdef _WIN32
+    return setting("oursSky", 1) >= 0.5f && setting("oursSkyStars", 100) > 0.0f && OursSky::Ready();
+#else
+    return false;
+#endif
+}
+
 bool Render() {
 #ifdef _WIN32
     if (setting("oursSky", 1) < 0.5f || !OursSky::Ready()) {
@@ -225,6 +233,28 @@ bool Render() {
     frame.settings[2] = setting("oursSkySunGlow", 100) / 100.0f;
     frame.settings[3] = 1;
     frame.seconds = float(std::fmod(seconds(), 20000.0));
+
+    // The night: how far the stars are out is the game's own fade of its stars by the hour (DNStars::Update: the
+    // fade table times 254, plus 1), and the settings.
+    frame.night[0] = std::min(std::max((DayNight::g_stars.m_color.a - 1) / 254.0f, 0.0f), 1.0f);
+    frame.night[1] = setting("oursSkyStars", 100) / 100.0f;
+    frame.night[2] = setting("oursSkyMilkyWay", 100) / 100.0f;
+    frame.night[3] = setting("oursSkyTwinkle", 100) / 100.0f;
+    frame.nightMore[0] = setting("oursSkyShootingStars", 100) / 100.0f;
+    // The sky of stars turns once a day about its pole, which stands toward the north (the world's x) at 40 degrees
+    // up, as it would some way north of the middle of the world; a way of the world is taken into the sky's own axes
+    // (first round, second round, the pole) and then turned by the hour.
+    const float tilt = 40.0f * PI / 180.0f;
+    const float pole[3] = { std::cos(tilt), 0.0f, std::sin(tilt) };
+    const float first[3] = { -std::sin(tilt), 0.0f, std::cos(tilt) };
+    const float second[3] = { pole[1] * first[2] - pole[2] * first[1], pole[2] * first[0] - pole[0] * first[2], pole[0] * first[1] - pole[1] * first[0] };
+    const float turned = info.m_dayProgression * 2.0f * PI;
+    const float c = std::cos(turned), s = std::sin(turned);
+    for (int k = 0; k < 3; ++k) {
+        frame.sphere[0][k] = c * first[k] - s * second[k];
+        frame.sphere[1][k] = s * first[k] + c * second[k];
+        frame.sphere[2][k] = pole[k];
+    }
     return OursSky::Draw(frame);
 #else
     return false;

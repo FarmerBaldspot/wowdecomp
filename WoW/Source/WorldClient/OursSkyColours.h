@@ -10,6 +10,9 @@
 namespace OursSkyColours {
     // DayNight::RenderSky, in place of the dome and the clouds: true if ours was drawn ("oursSky" is on and it could).
     bool Render();
+    // Whether ours draws the stars (the new sky is on and can be drawn, and "oursSkyStars" is above nothing): then the
+    // game's own (a model of dots, DNStars) is not drawn.
+    bool OwnStars();
 }
 
 #endif

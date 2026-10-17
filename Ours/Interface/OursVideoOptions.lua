@@ -161,13 +161,17 @@ objects.options = OursObjectsPanelOptions;
 VideoOptionsPanel_OnLoad(objects);
 
 -- The page "Sky": the sky drawn anew in each zone's own colours, smooth, with a glow round the sun and clouds that
--- drift (OursSkyColours.cpp, sky.hlsl).
+-- drift (OursSkyColours.cpp, sky.hlsl), and a night of stars.
 
 OursSkyPanelOptions = {
 	oursSky = { text = "New Sky", tooltip = "The sky in each zone's own colours, drawn smoothly, with a glow round the sun and clouds that drift and are lit from the sun's side. Off: the game's own sky. Zones with a sky of their own (Outland, Nagrand) keep it." },
 	oursSkyClouds = { text = "Clouds", minValue = 0, maxValue = 200, valueStep = 5, tooltip = "How much cloud, in percent of what the zone has." },
 	oursSkyCloudSpeed = { text = "Cloud Speed", minValue = 0, maxValue = 300, valueStep = 5, tooltip = "How fast the clouds drift." },
 	oursSkySunGlow = { text = "Sun Glow", minValue = 0, maxValue = 200, valueStep = 5, tooltip = "How strongly the sun glows in the sky, in the zone's own sun colour." },
+	oursSkyStars = { text = "Stars", minValue = 0, maxValue = 300, valueStep = 5, tooltip = "How bright the stars of the night are: thousands of them, white, blue and warm, wheeling slowly with the hour. At 0 the game's own stars are back." },
+	oursSkyMilkyWay = { text = "Milky Way", minValue = 0, maxValue = 300, valueStep = 5, tooltip = "How bright the band of the Milky Way is across the night sky, with its dark lanes of dust." },
+	oursSkyTwinkle = { text = "Twinkle", minValue = 0, maxValue = 200, valueStep = 5, tooltip = "How much the stars twinkle: more the lower they stand." },
+	oursSkyShootingStars = { text = "Shooting Stars", minValue = 0, maxValue = 400, valueStep = 10, tooltip = "How often a star shoots across the sky. At 100 about one every half minute." },
 };
 
 local skyPanel = CreateFrame("Frame", "OursSkyPanel", VideoOptionsFramePanelContainer);
@@ -239,6 +243,10 @@ end
 skySlider("oursSkyClouds", "Clouds", 0, 0);
 skySlider("oursSkyCloudSpeed", "CloudSpeed", 1, 0);
 skySlider("oursSkySunGlow", "SunGlow", 0, 1);
+skySlider("oursSkyStars", "Stars", 1, 1);
+skySlider("oursSkyMilkyWay", "MilkyWay", 0, 2);
+skySlider("oursSkyTwinkle", "Twinkle", 1, 2);
+skySlider("oursSkyShootingStars", "ShootingStars", 0, 3);
 
 skyPanel.name = "Sky";
 skyPanel.options = OursSkyPanelOptions;

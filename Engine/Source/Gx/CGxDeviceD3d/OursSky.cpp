@@ -9,6 +9,8 @@
 //   c2  the clouds' lit colour, how lit     c3  their own colour, how much they cover
 //   c4  their shade, the storm              c5  amount, speed, glow, 1 (the settings)
 //   c6  seconds, the colour picture's size (around, up)
+//   c7  the stars: how many are out, their brightness, the Milky Way's, the twinkling
+//   c8  how many shooting stars             c9 to c11  into the turning sky of stars
 //   s0  the colour picture
 // Blending: what the shader gives is added over what is there (the sun, the moons, the stars) as the game's dome is,
 // and its alpha is how much the clouds cover what is behind: one, inverse source alpha.
@@ -285,7 +287,7 @@ bool Draw(const Frame& frame) {
     if (!Ready() || !noiseReady() || !putColours(frame)) {
         return false;
     }
-    const float constants[7][4] = {
+    const float constants[12][4] = {
         { frame.sun[0], frame.sun[1], frame.sun[2], frame.sun[3] },
         { frame.sunColour[0], frame.sunColour[1], frame.sunColour[2], frame.sunColour[3] },
         { frame.cloudLit[0], frame.cloudLit[1], frame.cloudLit[2], frame.cloudLit[3] },
@@ -293,6 +295,11 @@ bool Draw(const Frame& frame) {
         { frame.cloudShade[0], frame.cloudShade[1], frame.cloudShade[2], frame.cloudShade[3] },
         { frame.settings[0], frame.settings[1], frame.settings[2], frame.settings[3] },
         { frame.seconds, float(frame.around), float(frame.up), 0 },
+        { frame.night[0], frame.night[1], frame.night[2], frame.night[3] },
+        { frame.nightMore[0], frame.nightMore[1], frame.nightMore[2], frame.nightMore[3] },
+        { frame.sphere[0][0], frame.sphere[0][1], frame.sphere[0][2], 0 },
+        { frame.sphere[1][0], frame.sphere[1][1], frame.sphere[1][2], 0 },
+        { frame.sphere[2][0], frame.sphere[2][1], frame.sphere[2][2], 0 },
     };
     struct Corner {
         float x, y, z, w;
@@ -309,7 +316,7 @@ bool Draw(const Frame& frame) {
     g_device->SetVertexDeclaration(g_layout);
     g_device->SetVertexShader(g_vs);
     g_device->SetPixelShader(g_ps);
-    g_device->SetPixelShaderConstantF(0, &constants[0][0], 7);
+    g_device->SetPixelShaderConstantF(0, &constants[0][0], 12);
     g_device->SetTexture(0, g_colours);
     g_device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
     g_device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);

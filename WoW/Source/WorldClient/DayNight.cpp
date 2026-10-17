@@ -1830,7 +1830,10 @@ void DayNight::RenderSky(CPortalView* view) {
     }
 
     if (drawObjects) {
-        DayNight::g_stars.Render();
+        // Ours: the new sky has stars of its own (sky.hlsl), in place of the game's model of dots.
+        if (!OursSkyColours::OwnStars()) {
+            DayNight::g_stars.Render();
+        }
         DayNight::g_planets.m_sun.Render();
         DayNight::g_planets.m_moon.Render();
         DayNight::g_planets.m_moon2.Render();
