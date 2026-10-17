@@ -19,10 +19,13 @@ R.PREVIEW_ID = 1199984;
 
 R.SCHOOLS = { "physical", "holy", "fire", "nature", "frost", "shadow", "arcane" };
 R.TARGETS = { "enemy", "friend", "self", "ground", "any" };
-R.WHOM = { "default", "target", "self", "enemies", "allies", "group" };
+R.WHOM = { "default", "target", "self", "enemies", "allies", "group", "party" };
 -- spells of one of these groups are one at a time (casting one ends its maker's others of the group)
 R.ONE_AT_A_TIME = { "none", "aura", "armor", "seal", "stance" };
 R.WHENS = { "expire", "dispelled", "dies" };
+-- what a lasting effect watches for while it lasts: (when <event> <chance> [(cooldown s)] ...)
+R.EVENTS = { "hit", "crit", "heal", "struck", "kill" };
+R.EVENT_WORDS = { "Each time it deals damage", "Each time it crits", "Each time it heals", "Each time it is struck", "Each time it kills" };
 
 -- The kinds of effect the window offers. word: the recipe's word; extra: the word after it (a stat, a power...);
 -- amount: what its numbers are ("range" low and high, "one", "count", "two": low and high as two numbers, "none");
@@ -30,7 +33,7 @@ R.WHENS = { "expire", "dispelled", "dies" };
 R.KINDS = {
 	{ key = "damage", label = "Damage", word = "damage", amount = "range" },
 	{ key = "heal", label = "Heal", word = "heal", amount = "range" },
-	{ key = "weapon", label = "Weapon strike", word = "weapon", amount = "two", lowLabel = "%", highLabel = "+" },
+	{ key = "weapon", label = "Weapon strike", word = "weapon", amount = "two", lowLabel = "%", highLabel = "+", unnormalized = true },
 	{ key = "dot", label = "Damage over time", word = "dot", amount = "one", aura = true, every = true, lowLabel = "a tick" },
 	{ key = "hot", label = "Heal over time", word = "hot", amount = "one", aura = true, every = true, lowLabel = "a tick" },
 	{ key = "absorb", label = "Absorb shield", word = "absorb", amount = "one", aura = true },
@@ -42,6 +45,8 @@ R.KINDS = {
 	{ key = "stun", label = "Stun", word = "stun", amount = "none", aura = true },
 	{ key = "silence", label = "Silence", word = "silence", amount = "none", aura = true },
 	{ key = "fear", label = "Fear", word = "fear", amount = "none", aura = true },
+	{ key = "disorient", label = "Disorient", word = "disorient", amount = "none", aura = true },
+	{ key = "watch", label = "Watch (a proc)", word = "watch", amount = "none", aura = true },
 	{ key = "disarm", label = "Disarm", word = "disarm", amount = "none", aura = true },
 	{ key = "taunt", label = "Taunt", word = "taunt", amount = "none", aura = true },
 	{ key = "interrupt", label = "Interrupt", word = "interrupt", amount = "none", lock = true },
@@ -126,9 +131,9 @@ end
 R.KIND_GROUPS = {
 	{ label = "Damage and healing", keys = { "damage", "heal", "weapon", "dot", "hot", "absorb" } },
 	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy" } },
-	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disarm", "taunt", "interrupt", "knockback", "charge" } },
+	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disorient", "disarm", "taunt", "interrupt", "knockback", "charge" } },
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
-	{ label = "Buffs", keys = { "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
+	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
 		"resist" } },
@@ -327,6 +332,10 @@ effectText = function (effect)
 	if ( kind.percent and effect.percent ) then
 		table.insert(parts, "(percent)");
 	end
+	-- a weapon strike by the weapon's own speed (Heroic Strike), not normalized to its kind
+	if ( kind.unnormalized and effect.unnormalized ) then
+		table.insert(parts, "(unnormalized)");
+	end
 	if ( kind.lock ) then
 		table.insert(parts, "(lock " .. number(effect.seconds) .. ")");
 	elseif ( kind.aura and (tonumber(effect.seconds) or 0) > 0 and not R.NoLength ) then
@@ -343,10 +352,18 @@ effectText = function (effect)
 	if ( effect.on == "group" and (tonumber(effect.reach) or 40) ~= 40 ) then
 		table.insert(parts, "(radius " .. number(effect.reach) .. ")");
 	end
+	-- a buff on one's party and raid: how far it reaches, if not the 100 yards of Arcane Brilliance
+	if ( effect.on == "party" and (tonumber(effect.reach) or 100) ~= 100 ) then
+		table.insert(parts, "(radius " .. number(effect.reach) .. ")");
+	end
 	if ( kind.aura and not R.NoLength ) then
 		for _, link in ipairs(effect.links or {}) do
 			if ( #link.effects > 0 ) then
 				local inner = { "when", link.when };
+				if ( link.event ) then
+					inner = { "when", link.event, number(tonumber(link.chance) or 100) };
+					if ( (tonumber(link.cooldown) or 0) > 0 ) then table.insert(inner, "(cooldown " .. number(link.cooldown) .. ")"); end
+				end
 				for _, other in ipairs(link.effects) do
 					table.insert(inner, effectText(other));
 				end
@@ -515,6 +532,7 @@ readEffect = function (node, dropped)
 			elseif ( key == "health" ) then effect.health = numberOf(child[2]) or 0;
 			elseif ( key == "elites" ) then effect.elites = true;
 			elseif ( key == "percent" ) then effect.percent = true;
+			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
 			elseif ( key == "outside-dungeons" ) then effect.outside = true;
 			elseif ( key == "power" ) then effect.power = wordOf(child[2]) or "keep";
 			elseif ( key == "as" ) then effect.as = wordOf(child[2]) or "none";
@@ -526,7 +544,18 @@ readEffect = function (node, dropped)
 			elseif ( key == "on" ) then effect.on = wordOf(child[2]);
 			elseif ( key == "when" ) then
 				local link = { when = wordOf(child[2]), effects = {} };
-				for j = 3, #child do
+				local from = 3;
+				for _, event in ipairs(R.EVENTS) do
+					if ( link.when == event ) then
+						link = { event = event, chance = numberOf(child[3]) or 100, cooldown = 0, effects = {} };
+						from = 4;
+						if ( child[4] and child[4].list and wordOf(child[4][1]) == "cooldown" ) then
+							link.cooldown = numberOf(child[4][2]) or 0;
+							from = 5;
+						end
+					end
+				end
+				for j = from, #child do
 					local inner = readEffect(child[j], dropped);
 					if ( inner ) then table.insert(link.effects, inner); end
 				end
@@ -1121,6 +1150,28 @@ UIDropDownMenu_Initialize(whenMenu, function (self, level)
 		end;
 		UIDropDownMenu_AddButton(info, level);
 	end
+	for i, event in ipairs(R.EVENTS) do
+		local info = UIDropDownMenu_CreateInfo();
+		local count, had = 0, nil;
+		for _, link in ipairs(whenEffect and whenEffect.links or {}) do
+			if ( link.event ) then had = link; if ( link.event == event ) then count = #link.effects; end end
+		end
+		info.text = R.EVENT_WORDS[i] .. (count > 0 and (" (" .. count .. ")") or "");
+		info.notCheckable = true;
+		info.func = function ()
+			-- one to an effect: choosing another changes what the one there is watches for
+			local link = had;
+			if ( link ) then
+				link.event = event;
+			else
+				link = { event = event, chance = 100, cooldown = 0, effects = {} };
+				table.insert(whenEffect.links, link);
+			end
+			table.insert(path, { effect = whenEffect, link = link, words = R.EVENT_WORDS[i] });
+			showEffects();
+		end;
+		UIDropDownMenu_AddButton(info, level);
+	end
 end, "MENU");
 
 -- Creatures: names the server told, and the chooser (opened from a row)
@@ -1188,7 +1239,7 @@ for i = 1, ROWS do
 			end
 		end
 	end);
-	row.on = dropDown("OursForgeOn" .. i, frame, 80, M + 172, y, itemsOf(R.WHOM, { "As aimed", "The target", "You", "Enemies", "Allies", "Your group" }),
+	row.on = dropDown("OursForgeOn" .. i, frame, 80, M + 172, y, itemsOf(R.WHOM, { "As aimed", "The target", "You", "Enemies", "Allies", "Your group", "Your party" }),
 		function (v) effectsShown()[i].on = v; showEffects(); end);
 	row.remove = button("OursForgeRemove" .. i, frame, "X", 24, M + 300, y - 2, function ()
 		table.remove(effectsShown(), i);
@@ -1251,6 +1302,12 @@ for i = 1, ROWS do
 	row.percent:SetHeight(22);
 	_G["OursForgePercent" .. i .. "Text"]:SetText("%");
 	row.percent:SetScript("OnClick", function (self) effectsShown()[i].percent = self:GetChecked() and true or nil; changed(); end);
+	-- a weapon strike by the weapon's own speed
+	row.ownSpeed = CreateFrame("CheckButton", "OursForgeOwnSpeed" .. i, frame, "UICheckButtonTemplate");
+	row.ownSpeed:SetWidth(22);
+	row.ownSpeed:SetHeight(22);
+	_G["OursForgeOwnSpeed" .. i .. "Text"]:SetText("own speed");
+	row.ownSpeed:SetScript("OnClick", function (self) effectsShown()[i].unnormalized = self:GetChecked() and true or nil; changed(); end);
 	row.power = dropDown("OursForgePower" .. i, frame, 70, M, y - 22, itemsOf(R.POWERS, { "Own resource", "Mana", "Rage", "Energy" }),
 		function (v) effectsShown()[i].power = v; end);
 	local asValues, asLabels = { "none" }, { "Own type" };
@@ -1347,6 +1404,30 @@ end
 
 frame.effectRows = effectRows;   -- (for the window's tests)
 
+-- in an effect's (when <event> ...): its chance, and how often at most
+local eventChanceLabel = label(frame, "chance", M + 110, EFFECTS_TOP - ROWS * 52 - 6, "GameFontHighlightSmall");
+local eventChance = editBox("OursForgeEventChance", frame, 34, M + 152, EFFECTS_TOP - ROWS * 52 - 2, function (text)
+	local last = path[#path];
+	if ( last and last.link.event ) then last.link.chance = tonumber(text) or 100; end
+end);
+local eventCooldownLabel = label(frame, "% at most every", M + 192, EFFECTS_TOP - ROWS * 52 - 6, "GameFontHighlightSmall");
+local eventCooldown = editBox("OursForgeEventCooldown", frame, 30, M + 282, EFFECTS_TOP - ROWS * 52 - 2, function (text)
+	local last = path[#path];
+	if ( last and last.link.event ) then last.link.cooldown = tonumber(text) or 0; end
+end);
+local eventSecondsLabel = label(frame, "s", M + 316, EFFECTS_TOP - ROWS * 52 - 6, "GameFontHighlightSmall");
+frame.eventChance, frame.eventCooldown = eventChance, eventCooldown;
+local function showEventFields ()
+	local last = path[#path];
+	local shown = last and last.link.event;
+	for _, widget in ipairs({ eventChanceLabel, eventChance, eventCooldownLabel, eventCooldown, eventSecondsLabel }) do
+		if ( shown ) then widget:Show(); else widget:Hide(); end
+	end
+	if ( shown ) then
+		eventChance:SetText(number(tonumber(last.link.chance) or 100));
+		eventCooldown:SetText(number(tonumber(last.link.cooldown) or 0));
+	end
+end
 addButton = button("OursForgeAdd", frame, "Add effect", 100, M, EFFECTS_TOP - ROWS * 52, function ()
 	local effects = effectsShown();
 	if ( #effects < 8 ) then
@@ -1411,14 +1492,16 @@ local function setRow (row, effect)
 	show(row.health, kind.health);
 	show(row.healthLabel, kind.health);
 	row.health:SetText(number(effect.health or 0));
-	local reaches = kind.totem or (kind.aura and not kind.shape and effect.on == "group");
+	local reaches = kind.totem or (kind.aura and not kind.shape and (effect.on == "group" or effect.on == "party"));
 	show(row.radius, reaches);
 	show(row.radiusLabel, reaches);
-	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or 40)));
+	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));
 	show(row.elites, kind.elites);
 	row.elites:SetChecked(effect.elites);
 	show(row.percent, kind.percent);
 	row.percent:SetChecked(effect.percent);
+	show(row.ownSpeed, kind.unnormalized);
+	row.ownSpeed:SetChecked(effect.unnormalized);
 	show(row.power, kind.shape);
 	row.power:SetValue(effect.power or "keep");
 	show(row.as, kind.shape);
@@ -1427,8 +1510,8 @@ local function setRow (row, effect)
 	-- What is shown, one after the other by how wide each is: a word, a box (whose frame reaches 5 to the left of
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
-	local order = { row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.aboveLabel, row.above, row.healthLabel,
-		row.health, row.forLabel, row.seconds, row.alwaysLabel, row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
+	local order = { row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.ownSpeed, row.aboveLabel, row.above,
+		row.healthLabel, row.health, row.forLabel, row.seconds, row.alwaysLabel, row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,
 		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true };
 	local menus = { [row.change] = true, [row.power] = true, [row.as] = true };
@@ -1438,9 +1521,9 @@ local function setRow (row, effect)
 			if ( menus[widget] ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x - 16, rowY[row] - 22);
 				x = x + widget.layoutWidth;
-			elseif ( widget == row.elites or widget == row.percent ) then
+			elseif ( widget == row.elites or widget == row.percent or widget == row.ownSpeed ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 24);
-				x = x + 22 + (widget == row.percent and 10 or 40);
+				x = x + 22 + (widget == row.percent and 10 or widget == row.ownSpeed and 56 or 40);
 			elseif ( words[widget] ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 30);
 				x = x + (widget:GetStringWidth() or 0) + 8;
@@ -1491,6 +1574,7 @@ showEffects = function ()
 		if ( effect ) then setRow(row, effect); end
 	end
 	if ( #effects < 8 ) then addButton:Show(); else addButton:Hide(); end
+	if ( showEventFields ) then showEventFields(); end
 	if ( #path > 0 ) then
 		local words = {};
 		for _, step in ipairs(path) do

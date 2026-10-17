@@ -13,6 +13,8 @@ for _, kind in ipairs(R.KINDS) do
 	if ( kind.aura ) then
 		local link = { when = "expire", effects = { R.NewEffect("damage"), R.NewEffect("slow") } };
 		table.insert(recipe.effects[1].links, link);
+		-- and what it watches for while it lasts (all a watch does)
+		table.insert(recipe.effects[1].links, { event = "struck", chance = 25, cooldown = 2, effects = { R.NewEffect("damage") } });
 	end
 	local text = R.Text(recipe);
 	local back, dropped = R.FromText(text);
@@ -634,3 +636,20 @@ CHECK(not OursForgeFrame.shown, "N closes it again");
 ToggleTalentFrame();
 CHECK(OursForgeFrame.shown, "and opens it");
 OursForgeFrame:Hide();
+
+-- a buff on one's party and raid, its reach; a weapon strike by its own speed; written and read back
+local R = OursForgeRecipe;
+local party = R.FromText('(spell (name "Brilliance") (target self) (stat intellect 60 (for 3600) (on party) (radius 80)) (weapon 100 495 (unnormalized)))');
+CHECK(party and party.effects[1].on == "party" and party.effects[1].reach == 80 and party.effects[2].unnormalized, "a party buff and an own-speed strike are read");
+local again = R.Text(party);
+CHECK(string.find(again, "%(on party%) %(radius 80%)") and string.find(again, "%(weapon 100 495 %(unnormalized%)%)"), "and written again: " .. again);
+party.effects[1].reach = 100;
+CHECK(not string.find(R.Text(party), "radius"), "100 yards is a party buff's own reach, not written");
+
+-- a lasting effect's proc and a watch, read and written back; the When menu's events and the chance beside Add
+local cheetah = R.FromText('(spell (name "Cheetah") (target self) (speed 30 (when struck 100 (slow 50 (for 4) (on self)))))');
+CHECK(cheetah and cheetah.effects[1].links[1].event == "struck" and cheetah.effects[1].links[1].chance == 100, "a proc of a buff is read");
+CHECK(string.find(R.Text(cheetah), "%(when struck 100 %(slow 50 %(for 4%) %(on self%)%)%)"), "and written again: " .. R.Text(cheetah));
+local seal = R.FromText('(spell (name "Seal") (target self) (watch (for 30) (when hit 20 (cooldown 1) (damage 50 fire))))');
+CHECK(seal and seal.effects[1].kind == "watch" and seal.effects[1].links[1].cooldown == 1, "a watch with a cooldown is read");
+CHECK(string.find(R.Text(seal), "%(watch %(for 30%) %(when hit 20 %(cooldown 1%) %(damage 50%)%)%)"), "and written again (fire is the spell's own school): " .. R.Text(seal));
