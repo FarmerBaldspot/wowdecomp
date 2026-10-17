@@ -335,6 +335,33 @@ do
 	table.insert(FORGE_TEXTS, text);
 end
 
+-- 11c. A spell that changes spells: its kind of spell in the place of "on", what it changes, the next so many
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "modify_spells");
+CHECK(OursForgeTag1.shown and OursForgeChange1.shown and OursForgeCharges1.shown and not OursForgeOn1.shown,
+	"a change of spells: its kind of spell, what it changes and how many spells, no \"on\"");
+Mock.pick(OursForgeTag1, "fire");
+Mock.pick(OursForgeChange1, "cast-time");
+Mock.type(OursForgeLow1, "-100");
+Mock.type(OursForgeCharges1, "1");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(modify fire cast%-time %-100 %(charges 1%)"), "the recipe says so: "
+	.. tostring(Mock.sent[1] and Mock.sent[1].body));
+do
+	local back = R.FromText('(spell (name "Focus") (target self) (modify (spells 1000016) crit 25 (charges 2)) '
+		.. '(vulnerable over-time 20 (for 12)) (spell-haste 20 magic (for 15)) (threat -30 (for 10)))');
+	CHECK(back and back.effects[1].kind == "modify_spells" and back.effects[1].change == "crit" and back.effects[1].charges == 2
+		and back.effects[1].spells[1] == 1000016, "a change of a spell of yours read back");
+	CHECK(back and back.effects[2].kind == "vulnerable" and back.effects[2].tag == "over-time" and back.effects[2].low == 20,
+		"more damage from you read back");
+	CHECK(back and back.effects[4].kind == "threat" and back.effects[4].low == -30, "threat read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(modify %(spells 1000016%) crit 25 %(charges 2%)%)") and string.find(text, "%(vulnerable over%-time 20"),
+		"and written again: " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
 -- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
 Mock.pick(OursForgeKind1, "summon_pet");
 OursForgeCreature1.scripts.OnClick(OursForgeCreature1);
@@ -506,7 +533,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Always on: speed,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");

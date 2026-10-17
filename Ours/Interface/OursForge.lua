@@ -91,6 +91,17 @@ R.KINDS = {
 	{ key = "mana_shield", label = "Mana shield", word = "mana-shield", amount = "one", aura = true },
 	{ key = "share_damage", label = "Take its damage", word = "share-damage", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "pushback", label = "Less pushback", word = "pushback-resist", amount = "one", aura = true, lowLabel = "%" },
+	-- what changes spells for a while: tagged: a kind of spell (or yours) in the place of "on"; changes: what of
+	-- them; charges: gone after so many
+	{ key = "modify_spells", label = "Change spells", word = "modify", amount = "one", aura = true, tagged = true, changes = true,
+		charges = true, lowLabel = "%" },
+	{ key = "spell_haste", label = "Casting speed", word = "spell-haste", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_speed", label = "Attack speed", word = "attack-speed", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "melee_speed", label = "Melee speed", word = "melee-speed", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "power_cost", label = "Cost of spells", word = "power-cost", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_taken", label = "Healing taken", word = "healing-taken", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "threat", label = "Threat", word = "threat", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "vulnerable", label = "More damage from you", word = "vulnerable", amount = "one", aura = true, tagged = true, lowLabel = "%" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -135,9 +146,9 @@ R.TAG_LABELS = { "All your spells", "Damaging spells", "Healing spells", "Spells
 	"Buffs", "Debuffs", "Instant spells", "Channelled spells", "Melee abilities", "Missiles", "Shields", "Pet spells", "Summons",
 	"Shapes", "Physical spells", "Holy spells", "Fire spells", "Nature spells", "Frost spells", "Shadow spells", "Arcane spells" };
 -- What a change changes
-R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "range", "radius", "crit-damage" };
+R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "range", "radius", "crit-damage", "pushback" };
 R.CHANGE_LABELS = { "Damage and healing", "Cost", "Cast time", "Cooldown", "Critical chance", "Duration", "Range", "Radius",
-	"Critical damage" };
+	"Critical damage", "Pushback" };
 
 R.KIND = {};
 for _, kind in ipairs(R.KINDS) do
@@ -155,6 +166,8 @@ R.KIND_GROUPS = {
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
 	{ label = "Protection", keys = { "immune", "immune_all", "immune_magic", "immune_physical", "break", "tenacity", "reflect",
 		"thorns", "mana_shield", "share_damage", "pushback" } },
+	{ label = "Changing spells", keys = { "modify_spells", "spell_haste", "attack_speed", "melee_speed", "power_cost", "healing_taken",
+		"threat", "vulnerable" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
@@ -169,6 +182,7 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on: combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health",
 		"damage-taken", "resist" } },
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
+	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -198,6 +212,11 @@ function R.NewEffect (key)
 	if ( kind.key == "pushback" ) then effect.low = 35; end
 	if ( kind.key == "reflect" ) then effect.low = 100; end
 	if ( kind.key == "mana_shield" ) then effect.low = 150; end
+	if ( kind.tagged ) then effect.tag, effect.spells = "all", {}; end
+	if ( kind.changes ) then effect.change, effect.low, effect.charges = "damage", 10, 0; end
+	if ( kind.key == "spell_haste" or kind.key == "attack_speed" or kind.key == "melee_speed" ) then effect.low = 20; end
+	if ( kind.key == "power_cost" or kind.key == "healing_taken" ) then effect.low = -20; end
+	if ( kind.key == "threat" ) then effect.low = 50; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -343,6 +362,12 @@ effectText = function (effect)
 	if ( kind.extra ) then
 		table.insert(parts, kind.extra);
 	end
+	if ( kind.tagged ) then
+		table.insert(parts, namedSpells(effect) or effect.tag or "all");
+	end
+	if ( kind.changes ) then
+		table.insert(parts, effect.change or "damage");
+	end
 	if ( kind.mechanics ) then
 		local any = false;
 		for _, m in ipairs(R.MECHANICS) do
@@ -369,6 +394,9 @@ effectText = function (effect)
 	-- a stat, armor or attack power by percent
 	if ( kind.percent and effect.percent ) then
 		table.insert(parts, "(percent)");
+	end
+	if ( kind.charges and (tonumber(effect.charges) or 0) > 0 ) then
+		table.insert(parts, "(charges " .. number(effect.charges) .. ")");
 	end
 	-- a weapon strike by the weapon's own speed (Heroic Strike), not normalized to its kind
 	if ( kind.unnormalized and effect.unnormalized ) then
@@ -567,7 +595,27 @@ readEffect = function (node, dropped)
 	if ( kind.totem ) then effect.inner = {}; end
 	if ( kind.aura or kind.lasting ) then effect.seconds = 0; end     -- (what it says, or none: lasting as its shape)
 	local numbers = {};
-	for i = 2, #node do
+	local from = 2;
+	-- a kind of spell, or (spells ...) of the character's, first; then what of them a change changes
+	if ( kind.tagged ) then
+		local first = node[2];
+		if ( first and first.list and wordOf(first[1]) == "spells" ) then
+			effect.spells = {};
+			for j = 2, #first do
+				local n = numberOf(first[j]);
+				if ( n ) then table.insert(effect.spells, n); else effect.tag = wordOf(first[j]) or effect.tag; end
+			end
+			from = 3;
+		elseif ( first and not first.list and not tonumber(first.word) ) then
+			effect.tag = wordOf(first) or "all";
+			from = 3;
+		end
+	end
+	if ( kind.changes ) then
+		effect.change = wordOf(node[from]) or "damage";
+		from = from + 1;
+	end
+	for i = from, #node do
 		local child = node[i];
 		if ( child.list ) then
 			local key = wordOf(child[1]);
@@ -581,6 +629,7 @@ readEffect = function (node, dropped)
 			elseif ( key == "elites" ) then effect.elites = true;
 			elseif ( key == "percent" ) then effect.percent = true;
 			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
+			elseif ( key == "charges" and kind.charges ) then effect.charges = numberOf(child[2]) or 0;
 			elseif ( key == "per-combo" ) then effect.perCombo = numberOf(child[2]) or 0;
 			elseif ( key == "per-combo-for" ) then effect.perComboFor = numberOf(child[2]) or 0;
 			elseif ( key == "outside-dungeons" ) then effect.outside = true;
@@ -1347,6 +1396,8 @@ for i = 1, ROWS do
 	end);
 	row.highLabel = label(frame, "", M + 80, y - 30, "GameFontHighlightSmall");
 	row.high = editBox("OursForgeHigh" .. i, frame, 34, M + 100, y - 26, function (t) effectsShown()[i].high = tonumber(t) or 0; end);
+	row.chargesLabel = label(frame, "next", M + 80, y - 30, "GameFontHighlightSmall");
+	row.charges = editBox("OursForgeCharges" .. i, frame, 22, M + 100, y - 26, function (t) effectsShown()[i].charges = tonumber(t) or 0; end);
 	row.perComboLabel = label(frame, "+/pt", M + 80, y - 30, "GameFontHighlightSmall");
 	row.perCombo = editBox("OursForgePerCombo" .. i, frame, 30, M + 100, y - 26, function (t) effectsShown()[i].perCombo = tonumber(t) or 0; end);
 	row.perComboForLabel = label(frame, "+s/pt", M + 80, y - 30, "GameFontHighlightSmall");
@@ -1568,7 +1619,7 @@ local function setRow (row, effect)
 	show(row.perComboForLabel, longer);
 	row.perComboFor:SetText(number(tonumber(effect.perComboFor) or 0));
 	show(row.alwaysLabel, (kind.lasting or (kind.aura and not kind.every and kind.key ~= "charm") or kind.part == "when") and not always
-		and not (kind.mechanics and (effect.on == "group" or effect.on == "party")));
+		and not (kind.mechanics and (effect.on == "group" or effect.on == "party")) and not kind.charges);
 	row.alwaysLabel:SetText(kind.part == "when" and "s (0: any time)" or "(0: always)");
 	row.forLabel:SetText(kind.lock and "lock" or (kind.part == "when" and "at most every" or "for"));
 	row.seconds:SetText(number(effect.seconds or 0));
@@ -1577,11 +1628,11 @@ local function setRow (row, effect)
 	row.every:SetText(number(effect.every or 0));
 
 	-- what is made at you has no "on": a creature, a form or an element in its place
-	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part));
-	show(row.tag, kind.part);
+	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged));
+	show(row.tag, kind.part or kind.tagged);
 	row.tag.items = kind.part == "when" and whenTagItems or tagItems;
 	row.tag:SetValue(effect.tag or "all");
-	if ( kind.part and effect.spells and #effect.spells > 0 ) then
+	if ( (kind.part or kind.tagged) and effect.spells and #effect.spells > 0 ) then
 		local names = {};
 		for _, id in ipairs(effect.spells) do
 			local name = GetSpellInfo(id);
@@ -1590,7 +1641,10 @@ local function setRow (row, effect)
 		end
 		UIDropDownMenu_SetText(row.tag, table.concat(names, ", "));
 	end
-	show(row.change, kind.part == "modify");
+	show(row.change, kind.part == "modify" or kind.changes);
+	show(row.charges, kind.charges and not always);
+	show(row.chargesLabel, kind.charges and not always);
+	row.charges:SetText(number(tonumber(effect.charges) or 0));
 	row.change:SetValue(effect.change or "damage");
 	show(row.creature, kind.creature);
 	row.creature:SetText(creatureText(effect.creature));
@@ -1604,7 +1658,7 @@ local function setRow (row, effect)
 	show(row.health, kind.health);
 	show(row.healthLabel, kind.health);
 	row.health:SetText(number(effect.health or 0));
-	local reaches = kind.totem or (kind.aura and not kind.shape and (effect.on == "group" or effect.on == "party"));
+	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and (effect.on == "group" or effect.on == "party"));
 	show(row.radius, reaches);
 	show(row.radiusLabel, reaches);
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));
@@ -1629,11 +1683,11 @@ local function setRow (row, effect)
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
 	local order = { row.mechanics, row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.perComboLabel, row.perCombo, row.ownSpeed,
-		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
+		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.chargesLabel, row.charges, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
 		row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,
 		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true,
-		[row.perComboLabel] = true, [row.perComboForLabel] = true };
+		[row.perComboLabel] = true, [row.perComboForLabel] = true, [row.chargesLabel] = true };
 	local menus = { [row.change] = true, [row.power] = true, [row.as] = true };
 	for _, widget in ipairs(order) do
 		if ( widget:IsShown() ) then
