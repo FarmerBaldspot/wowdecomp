@@ -15,21 +15,21 @@ local C = OursCreate;
 -- Agility, Stamina, Intellect and Spirit, and their health there
 C.DISTRIBUTIONS = {
 	WARRIOR = { title = "Strength and Stamina", stats = { 174, 113, 159, 36, 59 }, health = 8121 },
-	PALADIN = { title = "Strength and Stamina, some Spirit", stats = { 151, 90, 143, 98, 105 }, health = 6934 },
+	PALADIN = { title = "Strength and Stamina, some Spirit", short = "Strength, Stamina, Spirit", stats = { 151, 90, 143, 98, 105 }, health = 6934 },
 	HUNTER = { title = "Agility and Stamina", stats = { 74, 181, 128, 90, 97 }, health = 7324 },
 	ROGUE = { title = "Agility and Strength", stats = { 113, 189, 105, 43, 67 }, health = 7604 },
 	PRIEST = { title = "Spirit and Intellect", stats = { 43, 51, 67, 174, 181 }, health = 6960 },
-	SHAMAN = { title = "Even: a little of everything", stats = { 120, 74, 136, 128, 143 }, health = 6939 },
+	SHAMAN = { title = "Even: a little of everything", short = "A little of everything", stats = { 120, 74, 136, 128, 143 }, health = 6939 },
 	MAGE = { title = "Intellect and Spirit", stats = { 36, 43, 59, 181, 174 }, health = 6963 },
-	WARLOCK = { title = "Spirit and Intellect, some Stamina", stats = { 59, 67, 89, 159, 166 }, health = 7136 },
-	DRUID = { title = "Spirit and Intellect, some of all", stats = { 89, 82, 98, 143, 159 }, health = 7417 },
+	WARLOCK = { title = "Spirit and Intellect, some Stamina", short = "Spirit, Intellect, Stamina", stats = { 59, 67, 89, 159, 166 }, health = 7136 },
+	DRUID = { title = "Spirit and Intellect, some of all", short = "All round, Spirit first", stats = { 89, 82, 98, 143, 159 }, health = 7417 },
 };
 C.STAT_NAMES = { "Strength", "Agility", "Stamina", "Intellect", "Spirit" };
 C.POWERS = { { value = 0, label = "Mana" }, { value = 1, label = "Rage" }, { value = 2, label = "Energy" } };
 C.POWER_TEXT = {
-	[0] = "Mana: a pool that fills slowly; spells cost much of it.",
-	[1] = "Rage: built by fighting, gone when you rest.",
-	[2] = "Energy: a small pool that fills quickly.",
+	[0] = "Mana: a large pool that fills slowly.",
+	[1] = "Rage: built by fighting, gone at rest.",
+	[2] = "Energy: a small pool that fills fast.",
 };
 
 C.power = 0;
@@ -55,13 +55,13 @@ end
 
 local panel = CharacterCreateCharacterClass;
 local nameLabel = panel:CreateFontString(nil, "OVERLAY", "GlueFontNormalSmall");
-nameLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -58);
+nameLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -54);
 nameLabel:SetText("Name your class");
 
 local nameEdit = CreateFrame("EditBox", "OursCreateClassName", panel);
 nameEdit:SetWidth(222);
-nameEdit:SetHeight(32);
-nameEdit:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -70);
+nameEdit:SetHeight(30);
+nameEdit:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -64);
 nameEdit:SetAutoFocus(false);
 nameEdit:SetMaxLetters(24);
 nameEdit:SetFontObject("GlueEditBoxFont");
@@ -78,7 +78,7 @@ nameEdit:SetScript("OnEnterPressed", function () CharacterCreate_Okay(); end);
 nameEdit:SetScript("OnTabPressed", function () CharacterCreateNameEdit:SetFocus(); end);
 
 local powerLabel = panel:CreateFontString(nil, "OVERLAY", "GlueFontNormalSmall");
-powerLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -108);
+powerLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -98);
 powerLabel:SetText("Its resource");
 
 C.powerButtons = {};
@@ -86,7 +86,7 @@ for i, power in ipairs(C.POWERS) do
 	local b = CreateFrame("Button", "OursCreatePower" .. i, panel, "GlueButtonSmallTemplate");
 	b:SetWidth(72);
 	b:SetHeight(22);
-	b:SetPoint("TOPLEFT", panel, "TOPLEFT", 18 + (i - 1) * 76, -122);
+	b:SetPoint("TOPLEFT", panel, "TOPLEFT", 18 + (i - 1) * 76, -112);
 	b:SetText(power.label);
 	b.value = power.value;
 	b:SetScript("OnClick", function (self)
@@ -98,28 +98,23 @@ for i, power in ipairs(C.POWERS) do
 end
 
 local powerText = panel:CreateFontString(nil, "OVERLAY", "GlueFontNormalSmall");
-powerText:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -150);
+powerText:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -138);
 powerText:SetWidth(222);
 powerText:SetJustifyH("LEFT");
 
-local statsTitle = panel:CreateFontString(nil, "OVERLAY", "GlueFontNormalSmall");
-statsTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -180);
-statsTitle:SetWidth(222);
-statsTitle:SetJustifyH("LEFT");
-
 local statsText = panel:CreateFontString(nil, "OVERLAY", "GlueFontNormalSmall");
 statsText:SetTextColor(1, 1, 1);
-statsText:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", 0, -4);
+statsText:SetPoint("TOPLEFT", powerText, "BOTTOMLEFT", 0, -8);
 statsText:SetWidth(222);
 statsText:SetJustifyH("LEFT");
 
 local gearText = panel:CreateFontString(nil, "OVERLAY", "GlueFontNormalSmall");
-gearText:SetPoint("TOPLEFT", statsText, "BOTTOMLEFT", 0, -6);
+gearText:SetPoint("TOPLEFT", statsText, "BOTTOMLEFT", 0, -8);
 gearText:SetWidth(222);
 gearText:SetJustifyH("LEFT");
-gearText:SetText("Wears any armor and wields any weapon. Its spells are crafted at the forge.");
+gearText:SetText("Any armor, any weapon. Its spells are crafted at the forge.");
 
-C.frames = { nameEdit = nameEdit, powerText = powerText, statsTitle = statsTitle, statsText = statsText, nameLabel = nameLabel };
+C.frames = { nameEdit = nameEdit, powerText = powerText, statsText = statsText, nameLabel = nameLabel };
 
 -- What the panel says: the class's name, its resource, the distribution's stats
 function C.ShowClass ()
@@ -132,15 +127,13 @@ function C.ShowClass ()
 	local _, file = GetSelectedClass();
 	local d = file and C.DISTRIBUTIONS[file];
 	if ( d ) then
-		statsTitle:SetText("Its stats: " .. d.title);
 		local parts = {};
 		for i, stat in ipairs(C.STAT_NAMES) do
 			table.insert(parts, stat .. " " .. d.stats[i]);
 		end
 		statsText:SetText("At level 80: " .. table.concat(parts, ", ") .. "; health " .. d.health .. ".");
-		CharacterCreateClassName:SetText(d.title);
+		CharacterCreateClassName:SetText(d.short or d.title);
 	else
-		statsTitle:SetText("");
 		statsText:SetText("");
 	end
 end

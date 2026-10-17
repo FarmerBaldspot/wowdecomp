@@ -22,6 +22,12 @@ SetCharacterClass(4);
 CHECK(not CharacterCreateClassScrollFrame.shown, "the game's class text is hidden");
 CHECK(CharacterCreateClassName.text == "Agility and Strength", "the label under the buttons says the distribution: " .. tostring(CharacterCreateClassName.text));
 CHECK(string.find(C.frames.statsText.text, "Agility 189") and string.find(C.frames.statsText.text, "health 7604"), "its stats: " .. tostring(C.frames.statsText.text));
+SetCharacterClass(10);
+CHECK(CharacterCreateClassName.text == "All round, Spirit first", "a long one has a short name there: " .. tostring(CharacterCreateClassName.text));
+for file, d in pairs(C.DISTRIBUTIONS) do
+	CHECK(string.len(d.short or d.title) <= 26, file .. ": short enough under the buttons");
+end
+SetCharacterClass(4);
 
 -- 3. The class's name and its resource
 Mock.type(OursCreateClassName, "Shadow Dancer");
