@@ -8,6 +8,7 @@
 #include "WoW/Source/DB/Rec/SkillLineAbilityRec.h"
 #include "WoW/Source/DB/Rec/SpellRec.h"
 #include "WoW/Source/Magic/MagicClient/SpellTable.h"
+#include "WoW/Source/Ui/SpellBookFrame.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -222,6 +223,7 @@ int32_t OnCraftedSpells(void* param, NETMESSAGE msgId, uint32_t time, CDataStore
 
     static char texts[4][4096];
     uint32_t added = 0;
+    std::vector<int32_t> again;     // known before: the spell book files them anew once all are in
     for (uint32_t i = 0; i < count; i++) {
         uint32_t fields[234];
         msg->GetArray(fields, 234);
@@ -233,13 +235,21 @@ int32_t OnCraftedSpells(void* param, NETMESSAGE msgId, uint32_t time, CDataStore
             Log("Spellforge: a message of crafted spells ends early (record %u of %u)", i, count);
             break;
         }
+        bool const known = s_indexOf.find(static_cast<int32_t>(fields[0])) != s_indexOf.end();
         if (Add(fields, texts[0], texts[1], texts[2], texts[3])) {
             added++;
+            if (known) {
+                again.push_back(static_cast<int32_t>(fields[0]));
+            }
         } else {
             Log("Spellforge: crafted spell %u not taken", fields[0]);
         }
     }
     Log("Spellforge: %u of %u crafted spell record(s) taken", added, count);
+    // a spell made anew (it was a form and is not, or the other way round...) where the book has it
+    for (int32_t id : again) {
+        CGSpellBook::OursRelearnSpell(id);
+    }
     msg->m_read = msg->m_size;
     return 1;
 }

@@ -49,6 +49,7 @@
 #include "WoW/Source/Glue/CGlueMgr.h"
 #include "WoW/Source/Glue/CWOWClientStatus.h"
 #include "WoW/Source/WorldClient/OursGraphics.h"     // ours: our page of Video options
+#include "WoW/Source/Ui/OursForge.h"                 // ours: the forge window
 #include "WoW/Source/LoadingScreen.h"
 #include "WoW/Source/Magic/MagicClient/Spell_C.h"
 #include "WoW/Source/Net/Types.h"
@@ -1775,6 +1776,7 @@ void CGGameUI::InitializeFrameXML() {
     }
 
     OursGraphics::LoadOptionsPage(&status);  // ours: our page of Video options, as part of the game's own interface
+    OursForge::LoadWindow(&status);          // ours: the Spellforge realm's forge window (OursForge.h)
 
     uint8_t digest[16];
     MD5Final(digest, &md5);

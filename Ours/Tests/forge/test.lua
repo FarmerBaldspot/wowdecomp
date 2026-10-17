@@ -1,0 +1,435 @@
+-- Ours: checks of OursForge.lua, run by check.py after mock.lua and the window. CHECK(cond, what) counts; the texts
+-- the window writes are left in FORGE_TEXTS for check.py to hand to the server's reader.
+
+local R = OursForgeRecipe;
+FORGE_TEXTS = {};
+
+-- 1. The recipe, written and read back, for every kind of effect
+for _, kind in ipairs(R.KINDS) do
+	local recipe = R.New();
+	recipe.name = "Kind " .. kind.key;
+	recipe.effects = { R.NewEffect(kind.key) };
+	if ( kind.creature ) then recipe.effects[1].creature = 416; end
+	if ( kind.aura ) then
+		local link = { when = "expire", effects = { R.NewEffect("damage"), R.NewEffect("slow") } };
+		table.insert(recipe.effects[1].links, link);
+	end
+	local text = R.Text(recipe);
+	local back, dropped = R.FromText(text);
+	CHECK(back ~= nil, kind.key .. ": read back (" .. tostring(dropped) .. ")");
+	CHECK(back and R.Text(back) == text, kind.key .. ": the same text again\n    " .. text .. "\n    " .. (back and R.Text(back) or ""));
+	CHECK(back and #dropped == 0, kind.key .. ": nothing left out");
+	table.insert(FORGE_TEXTS, text);
+end
+
+-- 1b. Every setting of the new kinds written and read back the same, and taken by the server
+do
+	local recipe = R.New();
+	recipe.name = "Pets and shapes";
+	recipe.target = "enemy";
+	recipe.only = { beast = true, humanoid = true };
+	local tame = R.NewEffect("tame"); tame.above = 2; tame.elites = true;
+	local thrall = R.NewEffect("thrall"); thrall.above = -1; thrall.health = 30; thrall.elites = true; thrall.outside = true;
+	local charm = R.NewEffect("charm"); charm.above = 1; charm.seconds = 45;
+	recipe.effects = { tame, thrall, charm };
+	local text = R.Text(recipe);
+	local back = R.FromText(text);
+	CHECK(back and R.Text(back) == text, "tame, thrall, charm: the same text again\n    " .. text);
+	CHECK(string.find(text, "%(only beast humanoid%)"), "only some kinds of creature: " .. text);
+	table.insert(FORGE_TEXTS, text);
+
+	recipe = R.New();
+	recipe.name = "Summons";
+	recipe.target = "self";
+	local pet = R.NewEffect("summon_pet"); pet.creature = 416;
+	local helpers = R.NewEffect("summon"); helpers.creature = 29264; helpers.low = 3; helpers.seconds = 40;
+	local totem = R.NewEffect("totem"); totem.element = "water"; totem.seconds = 25; totem.every = 3; totem.radius = 12;
+	local heal = R.NewEffect("heal"); heal.low, heal.high = 10, 12;
+	totem.inner = { heal, R.NewEffect("slow") };
+	recipe.effects = { pet, helpers, totem };
+	text = R.Text(recipe);
+	back = R.FromText(text);
+	CHECK(back and R.Text(back) == text, "summons and a totem: the same text again\n    " .. text .. "\n    " .. (back and R.Text(back) or ""));
+	CHECK(back and back.effects[3] and #back.effects[3].inner == 2, "the totem's two effects read back");
+	table.insert(FORGE_TEXTS, text);
+
+	recipe = R.New();
+	recipe.name = "Shapes";
+	recipe.target = "self";
+	local cat = R.NewEffect("shape_form"); cat.form = "bear"; cat.power = "rage"; cat.as = "beast";
+	local armor = R.NewEffect("armor"); armor.seconds = 0;
+	recipe.effects = { cat, armor };
+	text = R.Text(recipe);
+	back = R.FromText(text);
+	CHECK(back and R.Text(back) == text, "a lasting form with a buff that lasts as long: the same text again\n    " .. text);
+	CHECK(not string.find(text, "%(armor 10 %(for"), "the buff has no length of its own: " .. text);
+	table.insert(FORGE_TEXTS, text);
+	local wolf = R.NewEffect("shape_creature"); wolf.creature = 299; wolf.power = "energy"; wolf.seconds = 60;
+	recipe.effects = { wolf };
+	text = R.Text(recipe);
+	back = R.FromText(text);
+	CHECK(back and R.Text(back) == text and back.effects[1].kind == "shape_creature", "a creature's shape: the same text again\n    " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
+-- 2. Shapes and casts
+local shapes = {
+	{ target = "self", shape = "area", cast = "instant" },
+	{ target = "ground", shape = "area", cast = "cast", castSeconds = 2 },
+	{ target = "enemy", shape = "cone", cast = "instant", target2 = nil },
+	{ target = "enemy", shape = "chain", cast = "cast", castSeconds = 2.5 },
+	{ target = "enemy", shape = "single", cast = "channel", castSeconds = 3 },
+	{ target = "friend", shape = "area", cast = "instant" },
+	{ target = "enemy", shape = "single", cast = "instant", melee = true },
+};
+for i, s in ipairs(shapes) do
+	local recipe = R.New();
+	recipe.name = "Shape " .. i;
+	for k, v in pairs(s) do recipe[k] = v; end
+	if ( s.shape == "cone" ) then recipe.target = "self"; end
+	if ( s.cast == "channel" ) then recipe.effects = { R.NewEffect("dot") }; recipe.effects[1].seconds = 3; recipe.effects[1].every = 1; end
+	local text = R.Text(recipe);
+	local back = R.FromText(text);
+	CHECK(back and R.Text(back) == text, "shape " .. i .. ": the same text again\n    " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
+-- 3. A recipe written by hand (the module's ember-curse.sf) read and written back the same
+if ( EMBER_CURSE ) then
+	local recipe, dropped = R.FromText(EMBER_CURSE);
+	CHECK(recipe ~= nil, "ember-curse.sf read");
+	CHECK(recipe and #recipe.effects == 4, "ember-curse.sf: four effects");
+	CHECK(recipe and #recipe.effects[2].links == 1 and #recipe.effects[2].links[1].effects == 2, "ember-curse.sf: the burn's link with two effects");
+	CHECK(recipe and recipe.effects[4].on == "self", "ember-curse.sf: the buff is on the caster");
+	local text = recipe and R.Text(recipe);
+	local again = text and R.Text(R.FromText(text));
+	CHECK(text and text == again, "ember-curse.sf: steady when written again");
+	table.insert(FORGE_TEXTS, text or "");
+end
+
+-- 4. A name with quotes and a backslash
+local odd = R.New();
+odd.name = 'The "Big" one \\ more';
+local back = R.FromText(R.Text(odd));
+CHECK(back and back.name == odd.name, "a name with quotes comes back: " .. tostring(back and back.name));
+
+-- 5. The window: shown, edited, previewed, answered
+Mock.sent = {};
+SlashCmdList["OURSFORGE"]();
+CHECK(OursForgeFrame.shown, "/forge shows the window");
+CHECK(Mock.sent[1] and Mock.sent[1].body == "L" and Mock.sent[1].prefix == "SFRG" and Mock.sent[1].target == "Test", "it asks for the character's spells");
+Mock.type(OursForgeName, "Fire Lance");
+Mock.wait(0.1);
+CHECK(#Mock.sent == 1, "no preview while typing");
+Mock.wait(0.5);
+local preview = Mock.sent[#Mock.sent];
+CHECK(preview and string.find(preview.body, "^P%d+:1:1:%(spell %(name \"Fire Lance\"%)"), "a preview is asked for: " .. tostring(preview and preview.body));
+local req = preview and tonumber(string.match(preview.body, "^P(%d+):"));
+
+Mock.receive("n" .. req .. ":a cast of 1.4 seconds is 1.5");
+Mock.receive("p" .. req .. ":42:mana:1");
+CHECK(OursForgeTooltip.link == "spell:1199984", "the preview's tooltip is the preview record: " .. tostring(OursForgeTooltip.link));
+CHECK(OursForgeForge.enabled ~= false, "Forge can be pressed");
+
+-- an old preview's answer is not taken
+OursForgeTooltip.link = "none";   -- (not nil: the stand-in answers a missing key with a function)
+Mock.receive("p" .. (req - 1) .. ":1:mana:1");
+CHECK(OursForgeTooltip.link == "none", "an answer to an older preview is left alone");
+
+-- an error
+Mock.receive("e" .. req .. ":line 1: the spell does nothing");
+CHECK(OursForgeForge.enabled == false, "after an error Forge cannot be pressed");
+
+-- 6. Effects: kind changed, one added, a link stepped into and out of
+-- the kinds come in groups that fit the screen, and every kind is in one
+local groups, inGroups, longest = 0, {}, 0;
+for _, info in ipairs(Mock.entries(OursForgeKind1)) do
+	if ( info.hasArrow ) then
+		groups = groups + 1;
+		longest = math.max(longest, #info.inside);
+		for _, inner in ipairs(info.inside) do inGroups[inner.value] = true; end
+	end
+end
+local missing = {};
+for _, kind in ipairs(R.KINDS) do if ( not inGroups[kind.key] ) then table.insert(missing, kind.key); end end
+CHECK(groups >= 4 and longest <= 12, "the kinds in " .. groups .. " groups, " .. longest .. " at the most");
+CHECK(#missing == 0, "every kind is in a group: " .. table.concat(missing, ", "));
+
+-- every kind's numbers in a row: nothing over what comes after it, nothing over When..., nothing out of the form
+local row1 = OursForgeFrame.effectRows[1];
+local FORM_RIGHT = 596;           -- (the form's part of the window ends there)
+local layouts = {};
+for _, kind in ipairs(R.KINDS) do
+	table.insert(layouts, { kind = kind });
+	if ( kind.aura ) then table.insert(layouts, { kind = kind, on = "group" }); end
+end
+for _, layout in ipairs(layouts) do
+	local kind = layout.kind;
+	Mock.pick(OursForgeKind1, kind.key);
+	if ( layout.on ) then Mock.pick(OursForgeOn1, layout.on); end
+	local order = { row1.power, row1.as, row1.lowLabel, row1.low, row1.highLabel, row1.high, row1.aboveLabel, row1.above,
+		row1.healthLabel, row1.health, row1.forLabel, row1.seconds, row1.alwaysLabel, row1.everyLabel, row1.every,
+		row1.radiusLabel, row1.radius, row1.elites };
+	local words = { [row1.lowLabel] = true, [row1.highLabel] = true, [row1.aboveLabel] = true, [row1.healthLabel] = true,
+		[row1.forLabel] = true, [row1.alwaysLabel] = true, [row1.everyLabel] = true, [row1.radiusLabel] = true };
+	local right, bad = nil, nil;
+	for _, w in ipairs(order) do
+		if ( w.shown ) then
+			local left, width;
+			if ( w == row1.power or w == row1.as ) then left, width = w.x + 16, w.layoutWidth - 16;
+			elseif ( w == row1.elites ) then left, width = w.x, 22 + 36;
+			elseif ( words[w] ) then left, width = w.x, w:GetStringWidth();
+			else left, width = w.x - 5, w.width + 5; end              -- an edit box's frame reaches 5 to its left
+			if ( right and left < right ) then bad = "something at " .. left .. " over what ends at " .. right; end
+			right = left + width + 2;
+		end
+	end
+	if ( row1.when.shown and right and right > row1.when.x ) then bad = "the numbers reach " .. right .. ", When... begins at " .. row1.when.x; end
+	if ( right and right > FORM_RIGHT ) then bad = "the numbers reach " .. right .. ", past the form's edge at " .. FORM_RIGHT; end
+	CHECK(not bad, kind.label .. (layout.on and (" on " .. layout.on) or "") .. ": " .. tostring(bad));
+	if ( layout.on ) then Mock.pick(OursForgeOn1, "default"); end
+end
+
+-- what stands in the place of "on"
+Mock.pick(OursForgeKind1, "summon_pet");
+CHECK(OursForgeCreature1.shown and not OursForgeOn1.shown and OursForgeCreature1.text == "Choose creature...", "a pet: a creature to choose, in the place of on");
+Mock.pick(OursForgeKind1, "shape_form");
+CHECK(OursForgeForm1.shown and OursForgePower1.shown and OursForgeAs1.shown and not OursForgeOn1.shown, "a form: its form, what it spends and counts as");
+Mock.pick(OursForgeKind1, "totem");
+CHECK(OursForgeElement1.shown and OursForgeRadius1.shown and OursForgeWhen1.text == "Effects (1)", "a totem: its element, reach and effects");
+Mock.pick(OursForgeKind1, "thrall");
+CHECK(OursForgeAbove1.shown and OursForgeHealth1.shown and OursForgeElites1.shown and OursForgeOn1.shown, "a thrall: levels, health, elites");
+
+Mock.pick(OursForgeKind1, "dot");
+CHECK(OursForgeFor1.shown and OursForgeEvery1.shown and OursForgeWhen1.shown, "a damage over time has its length, ticks and When...");
+CHECK(not OursForgeHigh1.shown, "and one amount");
+OursForgeAdd.scripts.OnClick(OursForgeAdd);
+CHECK(OursForgeKind2.shown, "Add effect adds a row");
+OursForgeWhen1.scripts.OnClick(OursForgeWhen1);
+Mock.pick(OursForgeWhenMenu, 1);
+CHECK(OursForgeBack.shown, "in a link there is Back");
+OursForgeAdd.scripts.OnClick(OursForgeAdd);
+Mock.pick(OursForgeKind1, "slow");
+OursForgeBack.scripts.OnClick(OursForgeBack);
+CHECK(not OursForgeBack.shown, "back at the spell's effects");
+Mock.wait(1);
+preview = Mock.sent[#Mock.sent];
+CHECK(preview and string.find(preview.body, "%(dot 10 %(for 12%) %(every 3%) %(when expire %(slow 40 %(for 6%)%)%)%)"),
+	"the link is in the recipe: " .. tostring(preview and preview.body));
+
+-- 7. A long recipe goes in parts
+for i = 3, 8 do OursForgeAdd.scripts.OnClick(OursForgeAdd); end
+Mock.type(OursForgeName, string.rep("Long Name ", 20));
+Mock.sent = {};
+Mock.wait(1);
+local parts = {};
+for _, m in ipairs(Mock.sent) do
+	local n, total = string.match(m.body, "^P%d+:(%d+):(%d+):");
+	if ( n ) then table.insert(parts, tonumber(total)); end
+	CHECK(string.len(m.body) <= 250, "a part fits an addon message: " .. string.len(m.body));
+end
+CHECK(#parts >= 2 and #parts == parts[1], "the long recipe goes in " .. tostring(parts[1]) .. " part(s)");
+
+-- 8. The list, and a crafted spell's recipe loaded
+Mock.receive("l1000000:12:Fireball");
+Mock.receive("l1000016:64:Ember Curse");
+Mock.receive("L2");
+CHECK(OursForgeSpell1.shown and OursForgeSpell2.shown and not OursForgeSpell3.shown, "two spells in the list");
+Mock.sent = {};
+OursForgeSpell2.scripts.OnClick(OursForgeSpell2);
+CHECK(Mock.sent[1] and Mock.sent[1].body == "G1000016", "a click asks for its recipe");
+if ( EMBER_CURSE ) then
+	-- (as the server sends it: written anew, without its notes)
+	local text = R.Text(R.FromText(EMBER_CURSE));
+	local a, b = string.sub(text, 1, 150), string.sub(text, 151);
+	Mock.receive("r1000016:2:2:" .. b);
+	Mock.receive("r1000016:1:2:" .. a);
+	CHECK(OursForgeName.text == "Ember Curse", "its recipe is in the form: " .. tostring(OursForgeName.text));
+	CHECK(OursForgeKind4.shown and not OursForgeKind5.shown, "with its four effects");
+end
+
+-- 8b. A spell of yours in the form: Save forges it anew in its place, Save as new beside it
+CHECK(OursForgeForge.text == "Save" and OursForgeSaveNew.shown, "a loaded spell is saved, not forged anew: " .. tostring(OursForgeForge.text));
+Mock.type(OursForgeName, "Ember Curse");
+Mock.sent = {};
+OursForgeForge.scripts.OnClick(OursForgeForge);
+CHECK(Mock.popups[#Mock.popups].which == "OURSFORGE_SAVE", "Save asks first");
+StaticPopupDialogs.OURSFORGE_SAVE.OnAccept();
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "^U1000016:%d+:1:%d+:%(spell"), "Save sends the spell's own number: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+local saveReq = Mock.sent[1] and tonumber(string.match(Mock.sent[1].body, "^U%d+:(%d+):"));
+Mock.sent = {};
+Mock.receive("u" .. tostring(saveReq) .. ":1000016");
+CHECK(Mock.sent[1] and Mock.sent[1].body == "L", "after saving the list is asked for anew");
+CHECK(OursForgeForge.text == "Save", "and the form still holds that spell");
+Mock.sent = {};
+OursForgeSaveNew.scripts.OnClick(OursForgeSaveNew);
+CHECK(Mock.popups[#Mock.popups].which == "OURSFORGE_FORGE", "Save as new asks first");
+StaticPopupDialogs.OURSFORGE_FORGE.OnAccept();
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "^F%d+:1:%d+:%(spell"), "Save as new forges a new one");
+local newReq = Mock.sent[1] and tonumber(string.match(Mock.sent[1].body, "^F(%d+):"));
+Mock.receive("f" .. tostring(newReq) .. ":1000032");
+Mock.sent = {};
+OursForgeForge.scripts.OnClick(OursForgeForge);
+StaticPopupDialogs.OURSFORGE_SAVE.OnAccept();
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "^U1000032:"), "after that, Save changes the new one");
+
+-- back to Ember Curse, and forgotten
+Mock.receive("r1000016:1:1:" .. R.Text(R.FromText(EMBER_CURSE or "(spell (name \"Ember Curse\") (damage 1))")));
+Mock.sent = {};
+OursForgeForget.scripts.OnClick(OursForgeForget);
+CHECK(Mock.popups[#Mock.popups].which == "OURSFORGE_FORGET", "Forget asks first");
+StaticPopupDialogs.OURSFORGE_FORGET.OnAccept();
+CHECK(Mock.sent[1] and Mock.sent[1].body == "X1000016", "and forgets the one picked");
+Mock.receive("x1000016");
+CHECK(OursForgeForge.text == "Forge" and not OursForgeSaveNew.shown, "once forgotten, what is in the form is a new spell");
+
+-- 9. Forge
+Mock.sent = {};
+OursForgeForge.scripts.OnClick(OursForgeForge);
+StaticPopupDialogs.OURSFORGE_FORGE.OnAccept();
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "^F%d+:1:%d+:%(spell"), "Forge sends the recipe");
+
+-- 10. The icon picker
+OursForgeIcon.scripts.OnClick(OursForgeIcon);
+CHECK(OursForgeIconChoice1.shown and OursForgeIconChoice3.shown and not OursForgeIconChoice4.shown, "the picker shows the game's icons");
+OursForgeIconChoice2.scripts.OnClick(OursForgeIconChoice2);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(icon 102%)"), "the icon picked is the recipe's");
+
+-- 11. Works on: some kinds of creature, then every kind again
+OursForgeNew.scripts.OnClick(OursForgeNew);
+Mock.pick(OursForgeOnlyMenu, "beast");
+Mock.pick(OursForgeOnlyMenu, "humanoid");
+CHECK(OursForgeOnly.text == "Beast, Humanoid", "works on beasts and humanoids: " .. tostring(OursForgeOnly.text));
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(only beast humanoid%)"), "and the recipe says so");
+Mock.pick(OursForgeOnlyMenu, "any");
+CHECK(OursForgeOnly.text == "Every kind", "every kind again");
+
+-- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
+Mock.pick(OursForgeKind1, "summon_pet");
+OursForgeCreature1.scripts.OnClick(OursForgeCreature1);
+CHECK(OursForgeCreaturePicker.shown, "the creature chooser opens");
+Mock.sent = {};
+Mock.type(OursForgeCreatureSearch, "imp");
+OursForgeCreaturePicker.scripts.OnUpdate(OursForgeCreaturePicker, 0);
+CHECK(#Mock.sent == 0, "not while typing");
+Mock.now = Mock.now + 0.5;
+OursForgeCreaturePicker.scripts.OnUpdate(OursForgeCreaturePicker, 0);
+local ask = Mock.sent[1] and Mock.sent[1].body;
+CHECK(ask and string.find(ask, "^C%d+:imp$"), "it asks for creatures: " .. tostring(ask));
+local creq = ask and string.match(ask, "^C(%d+):");
+Mock.receive("c" .. tostring(creq) .. ":416:1:3:Imp");
+Mock.receive("c" .. tostring(creq) .. ":12922:50:3:Imp Minion");
+Mock.receive("k" .. tostring(creq) .. ":2");
+CHECK(OursForgeCreatureChoice1.shown and OursForgeCreatureChoice2.shown and not OursForgeCreatureChoice3.shown, "two creatures found");
+OursForgeCreatureChoice1.scripts.OnClick(OursForgeCreatureChoice1);
+CHECK(not OursForgeCreaturePicker.shown and OursForgeCreature1.text == "Imp", "the one picked is the pet's: " .. tostring(OursForgeCreature1.text));
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(summon%-pet 416%)"), "and the recipe names it: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+-- an old search's answer is left alone
+Mock.receive("c" .. tostring((tonumber(creq) or 0) - 1) .. ":99:1:1:Old");
+CHECK(not OursForgeCreatureChoice3.shown, "an older search's answer is not shown");
+
+-- 13. A recipe that names creatures: their names are asked for
+Mock.sent = {};
+Mock.receive("r1000048:1:1:(spell (name \"Pack\") (target self) (summon 29264 2 (for 30)))");
+local asked = false;
+for _, m in ipairs(Mock.sent) do if ( m.body == "Cn29264:#29264" ) then asked = true; end end
+CHECK(asked, "the name of creature 29264 is asked for");
+Mock.receive("cn29264:29264:80:1:Spirit Wolf");
+Mock.receive("kn29264:1");
+CHECK(OursForgeCreature1.text == "Spirit Wolf", "and shown: " .. tostring(OursForgeCreature1.text));
+
+-- 14. A totem's own effects are stepped into, and the recipe holds them
+Mock.pick(OursForgeKind1, "totem");
+OursForgeWhen1.scripts.OnClick(OursForgeWhen1);
+CHECK(OursForgeBack.shown and OursForgeKind1.shown, "into the totem's effects");
+Mock.pick(OursForgeKind1, "heal");
+OursForgeBack.scripts.OnClick(OursForgeBack);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(totem %(element fire%) %(for 30%) %(every 2%) %(radius 10%) %(heal 20 30%)%)"),
+	"the totem heals around it: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+
+-- 15. What it costs: the character's own, or what a form of theirs spends
+OursForgeNew.scripts.OnClick(OursForgeNew);
+Mock.receive("wmana,energy");
+local costs = Mock.entries(OursForgeCost);
+CHECK(#costs == 2 and costs[1].value == "mana" and costs[2].value == "energy", "own mana and a form's energy to choose from");
+Mock.pick(OursForgeCost, "energy");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(power energy%)"), "a spell for the form costs energy: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+local back = R.FromText(string.match(Mock.sent[1] and Mock.sent[1].body or "", "^P%d+:%d+:%d+:(.*)$") or "");
+CHECK(back and back.power == "energy", "and reads back so");
+Mock.pick(OursForgeCost, "mana");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and not string.find(Mock.sent[1].body, "%(power"), "its own resource is not written");
+
+-- 16. Its look: a game spell of its kind by itself, or one picked
+OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeLook.scripts.OnClick(OursForgeLook);
+CHECK(OursForgeLookPicker.shown, "the look chooser opens");
+Mock.type(OursForgeLookSearch, "fire");
+Mock.now = Mock.now + 0.5;
+OursForgeLookPicker.scripts.OnUpdate(OursForgeLookPicker, 0);
+CHECK(OursForgeLookChoice1.shown and OursForgeLookChoice2.shown and not OursForgeLookChoice3.shown, "two spells to look like");
+OursForgeLookChoice2.scripts.OnClick(OursForgeLookChoice2);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(look 2136%)"), "the look picked is in the recipe: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+OursForgeLook.scripts.OnClick(OursForgeLook);
+OursForgeLookAuto.scripts.OnClick(OursForgeLookAuto);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and not string.find(Mock.sent[1].body, "%(look"), "and back to the look of its kind");
+
+-- 17. A buff for good, an aura on one's group, one at a time
+do
+	local recipe = R.New();
+	recipe.name = "Devotion";
+	recipe.target = "self";
+	recipe.oneAtATime = true;
+	local armor = R.NewEffect("armor"); armor.seconds = 0; armor.on = "group";
+	local stamina = R.NewEffect("stat_stamina"); stamina.seconds = 0;
+	recipe.effects = { armor, stamina };
+	local text = R.Text(recipe);
+	CHECK(not string.find(text, "%(for"), "lasting until cancelled: no length written: " .. text);
+	CHECK(string.find(text, "%(armor 10 %(on group%)%)") and string.find(text, "%(one%-at%-a%-time%)"), "on one's group, one at a time: " .. text);
+	local back = R.FromText(text);
+	CHECK(back and R.Text(back) == text and back.oneAtATime == true, "and read back the same");
+	table.insert(FORGE_TEXTS, text);
+end
+OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeOneAtATime:SetChecked(true);
+OursForgeOneAtATime.scripts.OnClick(OursForgeOneAtATime);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(one%-at%-a%-time%)"), "the window's one at a time is in the recipe");
+OursForgeOneAtATime:SetChecked(false);
+OursForgeOneAtATime.scripts.OnClick(OursForgeOneAtATime);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and not string.find(Mock.sent[1].body, "one%-at%-a%-time"), "and taken out again");
+
+-- 18. An aura on one's group reaches as far as it says
+OursForgeNew.scripts.OnClick(OursForgeNew);
+Mock.pick(OursForgeKind1, "armor");
+CHECK(not OursForgeRadius1.shown, "no reach for a buff on the target");
+Mock.pick(OursForgeOn1, "group");
+CHECK(OursForgeRadius1.shown and OursForgeRadius1.text == "40", "on one's group: its reach, 40 at first: " .. tostring(OursForgeRadius1.text));
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(on group%)") and not string.find(Mock.sent[1].body, "%(radius"), "40 is not written");
+Mock.type(OursForgeRadius1, "100");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(on group%) %(radius 100%)"), "another reach is: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+local back = R.FromText(string.match(Mock.sent[1] and Mock.sent[1].body or "", "^P%d+:%d+:%d+:(.*)$") or "");
+CHECK(back and back.effects[1].reach == 100 and back.effects[1].on == "group", "and read back so");
+table.insert(FORGE_TEXTS, back and R.Text(back) or "");

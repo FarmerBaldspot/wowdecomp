@@ -2359,6 +2359,15 @@ void CGSpellBook::DelKnownSpell(int32_t spellId, int32_t notify) {
 
 // VERIFY: 1789a24e manual
 // OFFSET: 0x0053F290
+void CGSpellBook::OursRelearnSpell(int32_t spellId) {
+    if (spellId < 0 || static_cast<uint32_t>(spellId) >= s_knownSpellBits.m_count
+        || !(s_knownSpellBits.m_bits.m_data[spellId >> 5] & (1 << (spellId & 0x1F)))) {
+        return;
+    }
+    CGSpellBook::DelKnownSpell(spellId, 0);
+    CGSpellBook::AddKnownSpell(spellId, 0, 0);
+}
+
 void CGSpellBook::ShutdownGame() {
     for (uint32_t i = 0; i < s_skillInfos.m_count; i++) {
         delete s_skillInfos.m_data[i];

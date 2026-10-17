@@ -80,6 +80,9 @@ class CGSpellBook {
     static int32_t GetSkinningSpell(const CGObject_C* object);
     static void ReplaceSpell(int32_t oldSpell, int32_t newSpell);
     static void DelKnownSpell(int32_t spellId, int32_t notify);
+    // Ours: a known spell whose record was sent again (a crafted spell saved anew) taken off the book's lists and
+    // put on those it belongs to now (the forms' bar, totems, summons...); nothing if it is not known
+    static void OursRelearnSpell(int32_t spellId);
     static void SendCompanionUpdate(int32_t type);
     static int32_t GetSpellRankOrLevel(const SpellRec* spell);
     static void PickupSpell(int32_t slot, int32_t petSpell);
