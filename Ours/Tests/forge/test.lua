@@ -298,7 +298,7 @@ Mock.wait(1);
 CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(icon 102%)"), "the icon picked is the recipe's");
 
 -- 11. Works on: some kinds of creature, then every kind again
-OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeFrame.newOne(false);
 Mock.pick(OursForgeOnlyMenu, "beast");
 Mock.pick(OursForgeOnlyMenu, "humanoid");
 CHECK(OursForgeOnly.text == "Beast, Humanoid", "works on beasts and humanoids: " .. tostring(OursForgeOnly.text));
@@ -356,7 +356,7 @@ CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(totem %(element fire%) 
 	"the totem heals around it: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
 
 -- 15. What it costs: the character's own, or what a form of theirs spends
-OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeFrame.newOne(false);
 Mock.receive("wmana,energy");
 local costs = Mock.entries(OursForgeCost);
 CHECK(#costs == 2 and costs[1].value == "mana" and costs[2].value == "energy", "own mana and a form's energy to choose from");
@@ -372,7 +372,7 @@ Mock.wait(1);
 CHECK(Mock.sent[1] and not string.find(Mock.sent[1].body, "%(power"), "its own resource is not written");
 
 -- 16. Its look: a game spell of its kind by itself, or one picked
-OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeFrame.newOne(false);
 OursForgeLook.scripts.OnClick(OursForgeLook);
 CHECK(OursForgeLookPicker.shown, "the look chooser opens");
 Mock.type(OursForgeLookSearch, "fire");
@@ -405,7 +405,7 @@ do
 	CHECK(back and R.Text(back) == text and back.oneAtATime == true, "and read back the same");
 	table.insert(FORGE_TEXTS, text);
 end
-OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeFrame.newOne(false);
 OursForgeOneAtATime:SetChecked(true);
 OursForgeOneAtATime.scripts.OnClick(OursForgeOneAtATime);
 Mock.sent = {};
@@ -418,7 +418,7 @@ Mock.wait(1);
 CHECK(Mock.sent[1] and not string.find(Mock.sent[1].body, "one%-at%-a%-time"), "and taken out again");
 
 -- 18. An aura on one's group reaches as far as it says
-OursForgeNew.scripts.OnClick(OursForgeNew);
+OursForgeFrame.newOne(false);
 Mock.pick(OursForgeKind1, "armor");
 CHECK(not OursForgeRadius1.shown, "no reach for a buff on the target");
 Mock.pick(OursForgeOn1, "group");
@@ -433,3 +433,173 @@ CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(on group%) %(radius 100
 local back = R.FromText(string.match(Mock.sent[1] and Mock.sent[1].body or "", "^P%d+:%d+:%d+:(.*)$") or "");
 CHECK(back and back.effects[1].reach == 100 and back.effects[1].on == "group", "and read back so");
 table.insert(FORGE_TEXTS, back and R.Text(back) or "");
+
+-- 19. A passive: its parts written and read back the same, and taken by the server
+do
+	local recipe = R.NewPassive();
+	recipe.name = "Fire Mastery";
+	local change = R.NewEffect("modify"); change.tag = "fire"; change.change = "crit"; change.low = 4;
+	local crit = R.NewEffect("crit"); crit.low = 2;
+	local onhit = R.NewEffect("onhit"); onhit.tag = "damage"; onhit.low = 10; onhit.inner = { R.NewEffect("slow") };
+	local when = R.NewEffect("when_crit"); when.tag = "fire"; when.low = 30; when.seconds = 6; when.inner = { R.NewEffect("dot") };
+	local shield = R.NewEffect("absorb"); shield.on = "self";
+	local struck = R.NewEffect("when_struck"); struck.low = 10; struck.inner = { shield };
+	local taken = R.NewEffect("damage-taken"); taken.low = 5;
+	local group = R.NewEffect("armor"); group.on = "group";
+	recipe.effects = { change, crit, onhit, when, struck, taken, group };
+	local text = R.Text(recipe);
+	CHECK(string.find(text, '^%(passive %(name "Fire Mastery"%) %(icon %d+%) %(modify fire crit 4%) %(crit 2%)'), "a passive's text: " .. text);
+	CHECK(string.find(text, "%(on%-hit damage 10 %(slow 40 %(for 6%)%)%)"), "an on-hit with what it does, which has a length: " .. text);
+	CHECK(string.find(text, "%(when crit 30 %(cooldown 6%) %(spells fire%) %(dot 10 %(for 12%) %(every 3%)%)%)"), "a when: " .. text);
+	CHECK(string.find(text, "%(when struck 10 %(absorb 10 %(for 6%) %(on self%)%)%)"), "a when of anything: no spells named: " .. text);
+	CHECK(string.find(text, "%(damage%-taken 5%)") and string.find(text, "%(armor 10 %(on group%)%)"), "what is always on has no length: " .. text);
+	local back, dropped = R.FromText(text);
+	CHECK(back and back.passive and R.Text(back) == text, "read back the same\n    " .. text .. "\n    " .. (back and R.Text(back) or ""));
+	CHECK(back and #dropped == 0, "nothing left out");
+	table.insert(FORGE_TEXTS, text);
+	-- every part on its own
+	for _, kind in ipairs(R.PARTS) do
+		local one = R.NewPassive();
+		one.name = "Part " .. kind.key;
+		one.effects = { R.NewEffect(kind.key) };
+		local t = R.Text(one);
+		local b = R.FromText(t);
+		CHECK(b and R.Text(b) == t, kind.key .. ": read back the same: " .. t);
+		table.insert(FORGE_TEXTS, t);
+	end
+end
+
+-- 20. The window's passive: New... offers both, a passive hides a spell's fields and has its parts
+local newEntries = Mock.entries(OursForgeNewMenu);
+CHECK(#newEntries == 2 and newEntries[1].text == "A spell" and newEntries[2].text == "A passive", "New... offers a spell or a passive");
+newEntries[2].func();
+CHECK(not OursForgeSpellPart.shown and OursForgeFrame.passiveText.shown, "a passive hides a spell's fields");
+CHECK(OursForgeFrame.effectsTitle.text == "Parts" and OursForgeAdd.text == "Add part", "its effects are parts");
+CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown and not OursForgeOn1.shown, "a change: its kind of spell and what it changes");
+do
+	local labels = {};
+	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+end
+Mock.pick(OursForgeChange1, "cost");
+Mock.pick(OursForgeTag1, "fire");
+Mock.type(OursForgeLow1, "-10");
+Mock.sent = {};
+Mock.wait(1);
+local passiveBody = Mock.sent[1] and Mock.sent[1].body or "";
+CHECK(string.find(passiveBody, '^P%d+:1:1:%(passive %(name "New Passive"%)') and string.find(passiveBody, "%(modify fire cost %-10%)"),
+	"its preview: " .. passiveBody);
+local passiveReq = tonumber(string.match(passiveBody, "^P(%d+):"));
+Mock.receive("s40:55");
+CHECK(string.find(OursForgeFrame.passiveText.text, "40 of 55 taken, 15 left"), "the points: " .. tostring(OursForgeFrame.passiveText.text));
+Mock.receive("p" .. tostring(passiveReq) .. ":12:points:1");
+CHECK(string.find(OursForgeFrame.costText.text, "Takes 12 points of 15 left"), "what it takes: " .. tostring(OursForgeFrame.costText.text));
+Mock.receive("p" .. tostring(passiveReq) .. ":20:points:1");
+CHECK(string.find(OursForgeFrame.costText.text, "a00000"), "more than is left: in red: " .. tostring(OursForgeFrame.costText.text));
+
+-- a "when": how often at most, and its effects stepped into, of what it may do
+OursForgeAdd.scripts.OnClick(OursForgeAdd);
+Mock.pick(OursForgeKind2, "when_crit");
+CHECK(OursForgeWhen2.shown and OursForgeWhen2.text == "Effects (1)" and OursForgeFor2.shown, "a when: its effects and how often: " .. tostring(OursForgeWhen2.text));
+CHECK(not OursForgeChange2.shown and OursForgeTag2.shown, "a when names a kind of spell, and changes nothing");
+Mock.type(OursForgeFor2, "8");
+OursForgeWhen2.scripts.OnClick(OursForgeWhen2);
+CHECK(OursForgeBack.shown and OursForgeFrame.effectsTitle.text == "Effects", "stepped into what it does");
+do
+	local labels = {};
+	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
+	local joined = table.concat(labels, ",");
+	CHECK(not string.find(joined, "Pets") and not string.find(joined, "Shapes") and string.find(joined, "Damage"), "what it may do: " .. joined);
+	CHECK(OursForgeOn1.shown and not OursForgeTag1.shown, "an effect inside has its own whom");
+end
+Mock.pick(OursForgeKind1, "heal");
+OursForgeBack.scripts.OnClick(OursForgeBack);
+Mock.sent = {};
+Mock.wait(1);
+passiveBody = Mock.sent[1] and Mock.sent[1].body or "";
+CHECK(string.find(passiveBody, "%(when crit 20 %(cooldown 8%) %(heal 20 30%)%)"), "the when in the recipe: " .. passiveBody);
+table.insert(FORGE_TEXTS, string.match(passiveBody, "^P%d+:%d+:%d+:(.*)$") or "");
+
+-- always on: no length
+Mock.pick(OursForgeKind1, "stat_stamina");
+CHECK(not OursForgeFor1.shown and not OursForgeWhen1.shown, "what is always on has no length and no links");
+
+-- a passive in the list, and a spell again hides the passive's text
+Mock.receive("a1000048:12:Fire Mastery");
+Mock.receive("L1");
+do
+	local found = false;
+	for i = 1, 16 do
+		local b = _G["OursForgeSpell" .. i];
+		if ( b.shown and b.id == 1000048 and string.find(b.text.text, "passive, 12 points") ) then found = true; end
+	end
+	CHECK(found, "a passive in the list, with its points");
+end
+OursForgeFrame.newOne(false);
+CHECK(OursForgeSpellPart.shown and not OursForgeFrame.passiveText.shown and OursForgeFrame.effectsTitle.text == "Effects", "a spell has its fields again");
+
+-- 21. A part names spells of yours (ticked, any number), or a kind again; a passive's rows stand under its text
+OursForgeFrame.newOne(true);
+Mock.receive("l1000096:20:Flame Lance");
+Mock.receive("l1000112:30:Frost Lance");
+Mock.receive("a1000128:12:Some Passive");
+Mock.receive("L3");
+do
+	local offered, passiveOffered = 0, false;
+	for _, info in ipairs(Mock.entries(OursForgeTag1)) do
+		if ( info.value == 1000096 or info.value == 1000112 ) then offered = offered + 1; info.func({ value = info.value }); end
+		if ( info.value == 1000128 ) then passiveOffered = true; end
+	end
+	CHECK(offered == 2 and not passiveOffered, "your spells are offered, your passives not");
+end
+CHECK(OursForgeTag1.menuText == "Spell 1000096, Spell 1000112", "the menu says the spells named: " .. tostring(OursForgeTag1.menuText));
+Mock.sent = {};
+Mock.wait(1);
+local namedBody = Mock.sent[1] and Mock.sent[1].body or "";
+CHECK(string.find(namedBody, "%(modify %(spells 1000096 1000112%) damage 5%)"), "the recipe names them: " .. namedBody);
+do
+	local text = string.match(namedBody, "^P%d+:%d+:%d+:(.*)$") or "";
+	local back = R.FromText(text);
+	CHECK(back and #back.effects[1].spells == 2 and R.Text(back) == text, "and is read back the same");
+	table.insert(FORGE_TEXTS, text);
+	local when = R.FromText('(passive (name "W") (icon 1) (when crit 20 (spells 1000096) (heal 5)) (on-hit (spells 1000112) 10 (slow 30 (for 4))))');
+	CHECK(when and #when.effects[1].spells == 1 and #when.effects[2].spells == 1, "a when and an on-hit that name a spell are read");
+	table.insert(FORGE_TEXTS, when and R.Text(when) or "");
+end
+Mock.pick(OursForgeTag1, "fire");
+Mock.sent = {};
+Mock.wait(1);
+namedBody = Mock.sent[1] and Mock.sent[1].body or "";
+CHECK(string.find(namedBody, "%(modify fire damage 5%)"), "a kind picked takes the spells' place: " .. namedBody);
+CHECK(OursForgeKind1.y == -196 and OursForgeFrame.effectsTitle.y == -178, "a passive's parts stand under its text: " .. tostring(OursForgeKind1.y));
+CHECK((OursForgeBack.x or 0) + 56 <= 596, "Back is inside the form");
+OursForgeFrame.newOne(false);
+CHECK(OursForgeKind1.y == -308, "a spell's effects stand where they did: " .. tostring(OursForgeKind1.y));
+
+-- 22. A stat, armor or attack power by percent (a passive's and a spell's alike)
+OursForgeFrame.newOne(true);
+Mock.pick(OursForgeKind1, "stat_stamina");
+CHECK(OursForgePercent1.shown and not OursForgeFor1.shown, "a stat has its percent tick");
+OursForgePercent1:SetChecked(true);
+OursForgePercent1.scripts.OnClick(OursForgePercent1);
+Mock.type(OursForgeLow1, "10");
+Mock.sent = {};
+Mock.wait(1);
+local pctBody = Mock.sent[1] and Mock.sent[1].body or "";
+CHECK(string.find(pctBody, "%(stat stamina 10 %(percent%)%)"), "by percent in the recipe: " .. pctBody);
+do
+	local text = string.match(pctBody, "^P%d+:%d+:%d+:(.*)$") or "";
+	local back = R.FromText(text);
+	CHECK(back and back.effects[1].percent and R.Text(back) == text, "and read back the same");
+	table.insert(FORGE_TEXTS, text);
+	local spell = R.New();
+	spell.target = "self";
+	local ap = R.NewEffect("attack-power"); ap.percent = true; ap.low = 5;
+	local armor = R.NewEffect("armor"); armor.percent = true;
+	spell.effects = { ap, armor };
+	local t = R.Text(spell);
+	CHECK(string.find(t, "%(attack%-power 5 %(percent%) %(for 6%)%)"), "a spell's buff by percent: " .. t);
+	table.insert(FORGE_TEXTS, t);
+end
+Mock.pick(OursForgeKind1, "spell-power");
+CHECK(not OursForgePercent1.shown, "spell power has none");

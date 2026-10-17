@@ -51,17 +51,28 @@ R.KINDS = {
 	{ key = "dispel_curse", label = "Remove curse", word = "dispel", extra = "curse", amount = "count" },
 	{ key = "dispel_disease", label = "Cure disease", word = "dispel", extra = "disease", amount = "count" },
 	{ key = "dispel_poison", label = "Cure poison", word = "dispel", extra = "poison", amount = "count" },
-	{ key = "stat_strength", label = "Strength", word = "stat", extra = "strength", amount = "one", aura = true },
-	{ key = "stat_agility", label = "Agility", word = "stat", extra = "agility", amount = "one", aura = true },
-	{ key = "stat_stamina", label = "Stamina", word = "stat", extra = "stamina", amount = "one", aura = true },
-	{ key = "stat_intellect", label = "Intellect", word = "stat", extra = "intellect", amount = "one", aura = true },
-	{ key = "stat_spirit", label = "Spirit", word = "stat", extra = "spirit", amount = "one", aura = true },
-	{ key = "stat_all", label = "All stats", word = "stat", extra = "all", amount = "one", aura = true },
-	{ key = "armor", label = "Armor", word = "armor", amount = "one", aura = true },
+	{ key = "stat_strength", label = "Strength", word = "stat", extra = "strength", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "stat_agility", label = "Agility", word = "stat", extra = "agility", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "stat_stamina", label = "Stamina", word = "stat", extra = "stamina", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "stat_intellect", label = "Intellect", word = "stat", extra = "intellect", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "stat_spirit", label = "Spirit", word = "stat", extra = "spirit", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "stat_all", label = "All stats", word = "stat", extra = "all", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "armor", label = "Armor", word = "armor", amount = "one", aura = true, percent = true, lowLabel = "by" },
 	{ key = "speed", label = "Run speed", word = "speed", amount = "one", aura = true, lowLabel = "%" },
-	{ key = "attack-power", label = "Attack power", word = "attack-power", amount = "one", aura = true },
+	{ key = "attack-power", label = "Attack power", word = "attack-power", amount = "one", aura = true, percent = true, lowLabel = "by" },
 	{ key = "spell-power", label = "Spell power", word = "spell-power", amount = "one", aura = true },
 	{ key = "damage-done", label = "Damage done", word = "damage-done", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "crit", label = "Critical strike chance", word = "crit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "haste", label = "Haste", word = "haste", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "hit", label = "Hit chance (attacks)", word = "hit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "spell-hit", label = "Hit chance (spells)", word = "spell-hit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "dodge", label = "Dodge", word = "dodge", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "parry", label = "Parry", word = "parry", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "block", label = "Block", word = "block", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "regen", label = "Mana every 5 sec.", word = "regen", amount = "one", aura = true },
+	{ key = "health", label = "Health", word = "health", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "damage-taken", label = "Damage taken", word = "damage-taken", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "resist", label = "Resist all magic", word = "resist", amount = "one", aura = true },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -81,8 +92,33 @@ R.POWER_LABELS = { "Your own", "Mana", "Rage", "Energy" };
 R.CREATURE_TYPES = { "beast", "dragonkin", "demon", "elemental", "giant", "undead", "humanoid", "critter", "mechanical" };
 R.CREATURE_TYPE_LABELS = { "Beast", "Dragonkin", "Demon", "Elemental", "Giant", "Undead", "Humanoid", "Critter", "Mechanical" };
 R.ELEMENTS = { "fire", "earth", "water", "air" };
+-- A passive's parts that are not effects: a change to one's spells of a kind, an "on hit" that adds effects to
+-- them, and "when" something happens (part: what it is; trigger: has effects of its own, stepped into)
+R.PARTS = {
+	{ key = "modify", label = "Change your spells", word = "modify", amount = "one", part = "modify", lowLabel = "%" },
+	{ key = "onhit", label = "Add to your spells", word = "on-hit", amount = "one", part = "onhit", trigger = true, lowLabel = "% chance" },
+	{ key = "when_crit", label = "When you crit", word = "when", extra = "crit", amount = "one", part = "when", trigger = true, lowLabel = "% chance" },
+	{ key = "when_hit", label = "When you deal damage", word = "when", extra = "hit", amount = "one", part = "when", trigger = true, lowLabel = "% chance" },
+	{ key = "when_heal", label = "When you heal", word = "when", extra = "heal", amount = "one", part = "when", trigger = true, lowLabel = "% chance" },
+	{ key = "when_struck", label = "When you are hit", word = "when", extra = "struck", amount = "one", part = "when", trigger = true, lowLabel = "% chance" },
+	{ key = "when_kill", label = "When you kill", word = "when", extra = "kill", amount = "one", part = "when", trigger = true, lowLabel = "% chance" },
+};
+-- The kinds of spell a part goes with (the server's tags); "any" only for "when": anything, attacks too
+R.TAGS = { "all", "damage", "heal", "over-time", "area", "control", "buff", "debuff", "instant", "channel", "melee", "missile",
+	"absorb", "pet", "summon", "shape", "physical", "holy", "fire", "nature", "frost", "shadow", "arcane" };
+R.TAG_LABELS = { "All your spells", "Damaging spells", "Healing spells", "Spells over time", "Area spells", "Spells of control",
+	"Buffs", "Debuffs", "Instant spells", "Channelled spells", "Melee abilities", "Missiles", "Shields", "Pet spells", "Summons",
+	"Shapes", "Physical spells", "Holy spells", "Fire spells", "Nature spells", "Frost spells", "Shadow spells", "Arcane spells" };
+-- What a change changes
+R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "range", "radius", "crit-damage" };
+R.CHANGE_LABELS = { "Damage and healing", "Cost", "Cast time", "Cooldown", "Critical chance", "Duration", "Range", "Radius",
+	"Critical damage" };
+
 R.KIND = {};
 for _, kind in ipairs(R.KINDS) do
+	R.KIND[kind.key] = kind;
+end
+for _, kind in ipairs(R.PARTS) do
 	R.KIND[kind.key] = kind;
 end
 
@@ -94,9 +130,31 @@ R.KIND_GROUPS = {
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
 	{ label = "Buffs", keys = { "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
+	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
+		"resist" } },
 	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem" } },
 	{ label = "Shapes", keys = { "shape_form", "shape_creature" } },
 };
+-- A passive's own: what is always on, and its parts
+R.PASSIVE_GROUPS = {
+	{ label = "Always on", keys = { "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
+		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
+	{ label = "Always on: combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health",
+		"damage-taken", "resist" } },
+	{ label = "Your spells", keys = { "modify", "onhit" } },
+	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
+};
+-- What a passive's "on hit" or "when" may do (no pets, minds, shapes, totems or charges)
+R.TRIGGER_GROUPS = {};
+for _, group in ipairs(R.KIND_GROUPS) do
+	if ( group.label ~= "Pets and summons" and group.label ~= "Shapes" ) then
+		local keys = {};
+		for _, key in ipairs(group.keys) do
+			if ( key ~= "charge" ) then table.insert(keys, key); end
+		end
+		table.insert(R.TRIGGER_GROUPS, { label = group.label, keys = keys });
+	end
+end
 
 function R.NewEffect (key)
 	local kind = R.KIND[key] or R.KIND.damage;
@@ -117,7 +175,25 @@ function R.NewEffect (key)
 	if ( kind.needsFor ) then effect.seconds = 30; end
 	if ( kind.key == "summon" ) then effect.low = 1; end
 	if ( kind.totem ) then effect.every = 2; effect.inner = { R.NewEffect("damage") }; end
+	if ( kind.part ) then
+		effect.tag = kind.part == "when" and "any" or (kind.part == "onhit" and "damage" or "all");
+		effect.change = "damage";
+		effect.low = kind.part == "modify" and 5 or (kind.part == "onhit" and 10 or 20);
+		effect.high = effect.low;
+		effect.seconds = 0;          -- a "when": at most every so many seconds (0: whenever)
+		effect.spells = {};          -- or the spells of the character's it names (in the place of the kind)
+		if ( kind.trigger ) then effect.inner = { R.NewEffect("damage") }; end
+	end
 	return effect;
+end
+
+-- A new passive
+function R.NewPassive ()
+	local recipe = R.New();
+	recipe.name = "New Passive";
+	recipe.passive = true;
+	recipe.effects = { R.NewEffect("modify") };
+	return recipe;
 end
 
 function R.New ()
@@ -178,10 +254,53 @@ local function specialText (effect, kind)
 	return "(" .. table.concat(parts, " ") .. ")";
 end
 
+-- What a part names: "(spells <number>...)" for spells of the character's, else its kind
+local function namedSpells (effect)
+	local numbers = {};
+	for _, id in ipairs(effect.spells or {}) do table.insert(numbers, number(id)); end
+	return #numbers > 0 and ("(spells " .. table.concat(numbers, " ") .. ")") or nil;
+end
+
+-- A passive's part
+local function partText (effect, kind)
+	local parts = { kind.word };
+	local named = namedSpells(effect);
+	if ( kind.part == "modify" ) then
+		table.insert(parts, named or effect.tag or "all");
+		table.insert(parts, effect.change or "damage");
+		table.insert(parts, number(effect.low));
+		return "(" .. table.concat(parts, " ") .. ")";
+	end
+	if ( kind.part == "onhit" ) then
+		table.insert(parts, named or effect.tag or "all");
+	else
+		table.insert(parts, kind.extra);
+	end
+	table.insert(parts, number(effect.low));
+	if ( kind.part == "when" ) then
+		if ( (tonumber(effect.seconds) or 0) > 0 ) then table.insert(parts, "(cooldown " .. number(effect.seconds) .. ")"); end
+		if ( named ) then
+			table.insert(parts, named);
+		elseif ( effect.tag and effect.tag ~= "any" ) then
+			table.insert(parts, "(spells " .. effect.tag .. ")");
+		end
+	end
+	local noLength = R.NoLength;
+	R.NoLength = nil;
+	for _, inner in ipairs(effect.inner or {}) do
+		table.insert(parts, effectText(inner));
+	end
+	R.NoLength = noLength;
+	return "(" .. table.concat(parts, " ") .. ")";
+end
+
 effectText = function (effect)
 	local kind = R.KIND[effect.kind];
 	if ( not kind ) then
 		return "";
+	end
+	if ( kind.part ) then
+		return partText(effect, kind);
 	end
 	if ( kind.creature or kind.shape or kind.totem or kind.above ) then
 		return specialText(effect, kind);
@@ -204,10 +323,14 @@ effectText = function (effect)
 			table.insert(parts, number(high));
 		end
 	end
+	-- a stat, armor or attack power by percent
+	if ( kind.percent and effect.percent ) then
+		table.insert(parts, "(percent)");
+	end
 	if ( kind.lock ) then
 		table.insert(parts, "(lock " .. number(effect.seconds) .. ")");
-	elseif ( kind.aura and (tonumber(effect.seconds) or 0) > 0 ) then
-		-- (without a length it lasts until cancelled, or as long as the spell's shape)
+	elseif ( kind.aura and (tonumber(effect.seconds) or 0) > 0 and not R.NoLength ) then
+		-- (without a length it lasts until cancelled, or as long as the spell's shape; a passive's always)
 		table.insert(parts, "(for " .. number(effect.seconds) .. ")");
 	end
 	if ( kind.every ) then
@@ -220,7 +343,7 @@ effectText = function (effect)
 	if ( effect.on == "group" and (tonumber(effect.reach) or 40) ~= 40 ) then
 		table.insert(parts, "(radius " .. number(effect.reach) .. ")");
 	end
-	if ( kind.aura ) then
+	if ( kind.aura and not R.NoLength ) then
 		for _, link in ipairs(effect.links or {}) do
 			if ( #link.effects > 0 ) then
 				local inner = { "when", link.when };
@@ -244,6 +367,16 @@ end
 
 -- The recipe's text, on one line
 function R.Text (recipe)
+	if ( recipe.passive ) then
+		-- a passive: its name and icon, and its parts; what is always on has no length
+		local parts = { "passive", "(name " .. quote(recipe.name) .. ")", "(icon " .. number(recipe.icon) .. ")" };
+		for _, effect in ipairs(recipe.effects) do
+			R.NoLength = true;
+			table.insert(parts, effectText(effect));
+			R.NoLength = nil;
+		end
+		return "(" .. table.concat(parts, " ") .. ")";
+	end
 	R.LastingShape = lastingShape(recipe);
 	local parts = { "spell", "(name " .. quote(recipe.name) .. ")", "(icon " .. number(recipe.icon) .. ")",
 		"(school " .. recipe.school .. ")", "(target " .. recipe.target .. ")" };
@@ -381,6 +514,7 @@ readEffect = function (node, dropped)
 			elseif ( key == "above" ) then effect.above = numberOf(child[2]) or 0;
 			elseif ( key == "health" ) then effect.health = numberOf(child[2]) or 0;
 			elseif ( key == "elites" ) then effect.elites = true;
+			elseif ( key == "percent" ) then effect.percent = true;
 			elseif ( key == "outside-dungeons" ) then effect.outside = true;
 			elseif ( key == "power" ) then effect.power = wordOf(child[2]) or "keep";
 			elseif ( key == "as" ) then effect.as = wordOf(child[2]) or "none";
@@ -427,11 +561,85 @@ readEffect = function (node, dropped)
 	return effect;
 end
 
+-- A passive's part read
+local function readPart (node, dropped)
+	local word = wordOf(node[1]);
+	local kind;
+	if ( word == "modify" ) then
+		kind = R.KIND.modify;
+	elseif ( word == "on-hit" ) then
+		kind = R.KIND.onhit;
+	else
+		kind = R.KIND["when_" .. tostring(wordOf(node[2]))];
+	end
+	if ( not kind ) then
+		table.insert(dropped, "(" .. tostring(word) .. " " .. tostring(wordOf(node[2])) .. " ...)");
+		return nil;
+	end
+	local effect = R.NewEffect(kind.key);
+	-- a kind, or (spells ...) with spells of the character's by their number (or a kind: the window has one of
+	-- the two)
+	local function which (item, otherwise)
+		if ( item and item.list and wordOf(item[1]) == "spells" ) then
+			local tag;
+			for j = 2, #item do
+				local n = numberOf(item[j]);
+				if ( n ) then table.insert(effect.spells, n); elseif ( wordOf(item[j]) ) then tag = tag or wordOf(item[j]); end
+			end
+			if ( #effect.spells > 0 and tag ) then table.insert(dropped, "a kind of spell beside the spells named"); end
+			effect.tag = (#effect.spells > 0) and otherwise or (tag or otherwise);
+		else
+			effect.tag = wordOf(item) or otherwise;
+		end
+	end
+	if ( kind.part == "modify" ) then
+		which(node[2], "all");
+		effect.change = wordOf(node[3]) or "damage";
+		effect.low = numberOf(node[4]) or 5;
+		effect.high = effect.low;
+		return effect;
+	end
+	if ( kind.part == "onhit" ) then which(node[2], "all"); else effect.tag = "any"; end
+	effect.low = numberOf(node[3]) or 100;
+	effect.high = effect.low;
+	effect.inner = {};
+	for i = 4, #node do
+		local child = node[i];
+		local key = child.list and wordOf(child[1]);
+		if ( key == "cooldown" ) then effect.seconds = numberOf(child[2]) or 0;
+		elseif ( key == "spells" ) then which(child, "any");
+		elseif ( child.list ) then
+			local inner = readEffect(child, dropped);
+			if ( inner ) then table.insert(effect.inner, inner); end
+		end
+	end
+	return effect;
+end
+
 -- A recipe from its text. Returns the recipe and a list of what the window has no place for (left out), or nil and why.
 function R.FromText (text)
 	local top, why = R.Read(text);
 	if ( not top ) then return nil, why; end
-	if ( not top.list or wordOf(top[1]) ~= "spell" ) then return nil, "a recipe is (spell ...)"; end
+	if ( top.list and wordOf(top[1]) == "passive" ) then
+		local recipe = R.NewPassive();
+		recipe.effects = {};
+		local dropped = {};
+		for i = 2, #top do
+			local node = top[i];
+			local key = node.list and wordOf(node[1]);
+			if ( key == "name" ) then recipe.name = wordOf(node[2]) or "";
+			elseif ( key == "icon" ) then recipe.icon = numberOf(node[2]) or 1;
+			elseif ( key == "modify" or key == "on-hit" or key == "when" ) then
+				local part = readPart(node, dropped);
+				if ( part ) then table.insert(recipe.effects, part); end
+			elseif ( node.list ) then
+				local effect = readEffect(node, dropped);
+				if ( effect ) then effect.seconds = 0; table.insert(recipe.effects, effect); end
+			end
+		end
+		return recipe, dropped;
+	end
+	if ( not top.list or wordOf(top[1]) ~= "spell" ) then return nil, "a recipe is (spell ...) or (passive ...)"; end
 	local recipe = R.New();
 	recipe.effects = {};
 	recipe.cast, recipe.castSeconds, recipe.cooldown, recipe.shape, recipe.speed = "instant", 0, 0, "single", 0;
@@ -708,7 +916,7 @@ local function showList ()
 			b.id = spell.id;
 			local name, _, texture = GetSpellInfo(spell.id);
 			b.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark");
-			b.text:SetText((name or spell.name) .. "\n|cff808080" .. spell.cost .. "|r");
+			b.text:SetText((name or spell.name) .. "\n|cff808080" .. (spell.passive and ("passive, " .. spell.cost .. " points") or spell.cost) .. "|r");
 			if ( spell.id == editing ) then b:LockHighlight(); else b:UnlockHighlight(); end
 			b:Show();
 		else
@@ -731,12 +939,28 @@ local showEffects;
 
 local M = 232;     -- where the middle begins
 
+-- the fields of a spell (a passive has none: it is not cast)
+local spellPart = CreateFrame("Frame", "OursForgeSpellPart", frame);
+spellPart:SetAllPoints(frame);
+-- in their place for a passive: what it is, and the character's points
+local passiveText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
+passiveText:SetPoint("TOPLEFT", M, -96);
+passiveText:SetWidth(346);
+passiveText:SetJustifyH("LEFT");
+passiveText:Hide();
+local pointsSpent, pointsPool = 0, 0;
+local function showPoints ()
+	passiveText:SetText("A passive is always on and costs nothing to keep: it takes points of your pool, which grows with your "
+		.. "level. Drawbacks give some back.\n\n|cffffd100Your points:|r " .. pointsSpent .. " of " .. pointsPool .. " taken, "
+		.. math.max(0, pointsPool - pointsSpent) .. " left.");
+end
+
 label(frame, "Name", M, -48);
 nameBox = editBox("OursForgeName", frame, 118, M + 6, -60, function (text) recipe.name = text; end);
 -- its look: the game's spell it looks like (chosen by what it does, or picked)
-local lookButton = button("OursForgeLook", frame, "Look...", 62, M + 130, -59, function () end);
+local lookButton = button("OursForgeLook", spellPart, "Look...", 62, M + 130, -59, function () end);
 -- one at a time: casting it ends one's other spells that are (cheaper)
-local oneCheck = CreateFrame("CheckButton", "OursForgeOneAtATime", frame, "UICheckButtonTemplate");
+local oneCheck = CreateFrame("CheckButton", "OursForgeOneAtATime", spellPart, "UICheckButtonTemplate");
 oneCheck:SetWidth(24);
 oneCheck:SetHeight(24);
 oneCheck:SetPoint("TOPLEFT", M + 244, -56);
@@ -751,42 +975,42 @@ iconButton.texture = iconButton:CreateTexture(nil, "ARTWORK");
 iconButton.texture:SetAllPoints();
 iconButton:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD");
 
-label(frame, "School", M, -88);
-schoolMenu = dropDown("OursForgeSchool", frame, 100, M, -100, itemsOf(R.SCHOOLS), function (v) recipe.school = v; end);
-label(frame, "Aimed at", M + 150, -88);
-targetMenu = dropDown("OursForgeTarget", frame, 100, M + 150, -100, itemsOf(R.TARGETS, { "An enemy", "A friend", "Yourself", "The ground", "Anyone" }),
+label(spellPart, "School", M, -88);
+schoolMenu = dropDown("OursForgeSchool", spellPart, 100, M, -100, itemsOf(R.SCHOOLS), function (v) recipe.school = v; end);
+label(spellPart, "Aimed at", M + 150, -88);
+targetMenu = dropDown("OursForgeTarget", spellPart, 100, M + 150, -100, itemsOf(R.TARGETS, { "An enemy", "A friend", "Yourself", "The ground", "Anyone" }),
 	function (v) recipe.target = v; showEffects(); end);
 
-label(frame, "Cast", M, -132);
-castMenu = dropDown("OursForgeCast", frame, 100, M, -144, itemsOf({ "instant", "cast", "channel" }, { "Instant", "Cast time", "Channel" }),
+label(spellPart, "Cast", M, -132);
+castMenu = dropDown("OursForgeCast", spellPart, 100, M, -144, itemsOf({ "instant", "cast", "channel" }, { "Instant", "Cast time", "Channel" }),
 	function (v) recipe.cast = v; if ( v ~= "instant" and (tonumber(recipe.castSeconds) or 0) <= 0 ) then recipe.castSeconds = 1.5; end showEffects(); end);
-castBox = editBox("OursForgeCastSeconds", frame, 36, M + 140, -146, function (t) recipe.castSeconds = tonumber(t) or 0; end);
-local castLabel = label(frame, "seconds", M + 182, -150, "GameFontHighlightSmall");
-label(frame, "Cooldown", M + 250, -132);
-cooldownBox = editBox("OursForgeCooldown", frame, 36, M + 256, -146, function (t) recipe.cooldown = tonumber(t) or 0; end);
-label(frame, "s", M + 298, -150, "GameFontHighlightSmall");
+castBox = editBox("OursForgeCastSeconds", spellPart, 36, M + 140, -146, function (t) recipe.castSeconds = tonumber(t) or 0; end);
+local castLabel = label(spellPart, "seconds", M + 182, -150, "GameFontHighlightSmall");
+label(spellPart, "Cooldown", M + 250, -132);
+cooldownBox = editBox("OursForgeCooldown", spellPart, 36, M + 256, -146, function (t) recipe.cooldown = tonumber(t) or 0; end);
+label(spellPart, "s", M + 298, -150, "GameFontHighlightSmall");
 
-local rangeLabel = label(frame, "Range", M, -176);
-rangeBox = editBox("OursForgeRange", frame, 36, M + 6, -190, function (t) recipe.range = tonumber(t) or 0; end);
-local yardsLabel = label(frame, "yards", M + 48, -194, "GameFontHighlightSmall");
-meleeCheck = CreateFrame("CheckButton", "OursForgeMelee", frame, "UICheckButtonTemplate");
+local rangeLabel = label(spellPart, "Range", M, -176);
+rangeBox = editBox("OursForgeRange", spellPart, 36, M + 6, -190, function (t) recipe.range = tonumber(t) or 0; end);
+local yardsLabel = label(spellPart, "yards", M + 48, -194, "GameFontHighlightSmall");
+meleeCheck = CreateFrame("CheckButton", "OursForgeMelee", spellPart, "UICheckButtonTemplate");
 meleeCheck:SetWidth(24);
 meleeCheck:SetHeight(24);
 meleeCheck:SetPoint("TOPLEFT", M + 84, -186);
 OursForgeMeleeText:SetText("Melee");
 meleeCheck:SetScript("OnClick", function (self) recipe.melee = self:GetChecked() and true or false; showEffects(); changed(); end);
-label(frame, "Missile speed", M + 170, -176);
-speedBox = editBox("OursForgeSpeed", frame, 36, M + 176, -190, function (t) recipe.speed = tonumber(t) or 0; end);
-label(frame, "yd/s (0: at once)", M + 218, -194, "GameFontHighlightSmall");
+label(spellPart, "Missile speed", M + 170, -176);
+speedBox = editBox("OursForgeSpeed", spellPart, 36, M + 176, -190, function (t) recipe.speed = tonumber(t) or 0; end);
+label(spellPart, "yd/s (0: at once)", M + 218, -194, "GameFontHighlightSmall");
 
-label(frame, "Shape", M, -220);
-shapeMenu = dropDown("OursForgeShape", frame, 100, M, -232, itemsOf({ "single", "area", "cone", "chain" }, { "One target", "An area", "A cone", "A chain" }),
+label(spellPart, "Shape", M, -220);
+shapeMenu = dropDown("OursForgeShape", spellPart, 100, M, -232, itemsOf({ "single", "area", "cone", "chain" }, { "One target", "An area", "A cone", "A chain" }),
 	function (v) recipe.shape = v; showEffects(); end);
-sizeLabel = label(frame, "Radius", M + 150, -220);
-sizeBox = editBox("OursForgeSize", frame, 36, M + 156, -234, function (t)
+sizeLabel = label(spellPart, "Radius", M + 150, -220);
+sizeBox = editBox("OursForgeSize", spellPart, 36, M + 156, -234, function (t)
 	if ( recipe.shape == "chain" ) then recipe.jumps = tonumber(t) or 1; else recipe.radius = tonumber(t) or 1; end
 end);
-aroundMenu = dropDown("OursForgeAround", frame, 90, M + 210, -232, itemsOf({ "target", "caster" }, { "Around the target", "Around you" }),
+aroundMenu = dropDown("OursForgeAround", spellPart, 90, M + 210, -232, itemsOf({ "target", "caster" }, { "Around the target", "Around you" }),
 	function (v) recipe.around = v; end);
 
 -- The kinds of creature it works on (every kind if none is ticked)
@@ -797,12 +1021,12 @@ local function onlyWords ()
 	end
 	return #words > 0 and table.concat(words, ", ") or "Every kind";
 end
-label(frame, "Works on", M, -262);
+label(spellPart, "Works on", M, -262);
 local onlyButton, onlyMenu;
-onlyButton = button("OursForgeOnly", frame, "Every kind", 136, M + 74, -258, function (self)
+onlyButton = button("OursForgeOnly", spellPart, "Every kind", 136, M + 74, -258, function (self)
 	ToggleDropDownMenu(1, nil, onlyMenu, self, 0, 0);
 end);
-onlyMenu = CreateFrame("Frame", "OursForgeOnlyMenu", frame, "UIDropDownMenuTemplate");
+onlyMenu = CreateFrame("Frame", "OursForgeOnlyMenu", spellPart, "UIDropDownMenuTemplate");
 UIDropDownMenu_Initialize(onlyMenu, function (self, level)
 	local info = UIDropDownMenu_CreateInfo();
 	info.text = "Every kind";
@@ -838,16 +1062,17 @@ local function costItems ()
 	end
 	return items;
 end
-label(frame, "Spends", M + 222, -262);
-costMenu = dropDown("OursForgeCost", frame, 70, M + 262, -258, costItems(), function (v)
+label(spellPart, "Spends", M + 222, -262);
+costMenu = dropDown("OursForgeCost", spellPart, 70, M + 262, -258, costItems(), function (v)
 	recipe.power = (v ~= allowedPowers[1]) and v or nil;
 end);
 
 -- The effects
 local EFFECTS_TOP = -312;
 local effectsTitle = label(frame, "Effects", M, -290, "GameFontNormal");
+frame.effectsTitle = effectsTitle;
 crumbs = label(frame, "", M + 60, -291, "GameFontHighlightSmall");
-backButton = button("OursForgeBack", frame, "Back", 60, M + 330, -286, function ()
+backButton = button("OursForgeBack", frame, "Back", 56, M + 292, -286, function ()
 	table.remove(path);
 	showEffects();
 end);
@@ -898,6 +1123,12 @@ local kindItems = {};
 for _, kind in ipairs(R.KINDS) do
 	table.insert(kindItems, { value = kind.key, label = kind.label });
 end
+for _, kind in ipairs(R.PARTS) do
+	table.insert(kindItems, { value = kind.key, label = kind.label });
+end
+local tagItems = itemsOf(R.TAGS, R.TAG_LABELS);
+local whenTagItems = { { value = "any", label = "Anything" } };
+for _, item in ipairs(tagItems) do table.insert(whenTagItems, item); end
 
 for i = 1, ROWS do
 	local y = EFFECTS_TOP - (i - 1) * 52;
@@ -914,7 +1145,12 @@ for i = 1, ROWS do
 	local pickKind = row.kind.pick;
 	UIDropDownMenu_Initialize(row.kind, function (self, level)
 		level = level or 1;
-		for _, group in ipairs(R.KIND_GROUPS) do
+		-- a passive's own parts at its top, what a part of it does inside one, a spell's effects elsewhere
+		local last = path[#path];
+		local groups = R.KIND_GROUPS;
+		if ( last and R.KIND[last.effect.kind].trigger ) then groups = R.TRIGGER_GROUPS;
+		elseif ( not last and recipe.passive ) then groups = R.PASSIVE_GROUPS; end
+		for _, group in ipairs(groups) do
 			if ( level == 1 ) then
 				local info = UIDropDownMenu_CreateInfo();
 				info.text = group.label;
@@ -961,10 +1197,11 @@ for i = 1, ROWS do
 	rowY[row] = y;
 	row.when = button("OursForgeWhen" .. i, frame, "When...", 60, M + 290, y - 26, function (self)
 		local effect = effectsShown()[i];
-		if ( R.KIND[effect.kind].totem ) then
-			-- a totem's own effects, as a link's are stepped into
+		if ( R.KIND[effect.kind].totem or R.KIND[effect.kind].trigger ) then
+			-- a totem's own effects, or what a passive's part does, as a link's are stepped into
 			effect.inner = effect.inner or {};
-			table.insert(path, { effect = effect, link = { effects = effect.inner }, words = "around it" });
+			table.insert(path, { effect = effect, link = { effects = effect.inner },
+				words = R.KIND[effect.kind].totem and "around it" or "what it does" });
 			showEffects();
 			return;
 		end
@@ -995,12 +1232,103 @@ for i = 1, ROWS do
 	row.elites:SetHeight(22);
 	_G["OursForgeElites" .. i .. "Text"]:SetText("elites");
 	row.elites:SetScript("OnClick", function (self) effectsShown()[i].elites = self:GetChecked() and true or false; changed(); end);
+	-- by percent (a stat, armor, attack power) in place of points
+	row.percent = CreateFrame("CheckButton", "OursForgePercent" .. i, frame, "UICheckButtonTemplate");
+	row.percent:SetWidth(22);
+	row.percent:SetHeight(22);
+	_G["OursForgePercent" .. i .. "Text"]:SetText("%");
+	row.percent:SetScript("OnClick", function (self) effectsShown()[i].percent = self:GetChecked() and true or nil; changed(); end);
 	row.power = dropDown("OursForgePower" .. i, frame, 70, M, y - 22, itemsOf(R.POWERS, { "Own resource", "Mana", "Rage", "Energy" }),
 		function (v) effectsShown()[i].power = v; end);
 	local asValues, asLabels = { "none" }, { "Own type" };
 	for j, t in ipairs(R.CREATURE_TYPES) do table.insert(asValues, t); table.insert(asLabels, "A " .. string.lower(R.CREATURE_TYPE_LABELS[j])); end
 	row.as = dropDown("OursForgeAs" .. i, frame, 70, M, y - 22, itemsOf(asValues, asLabels), function (v) effectsShown()[i].as = v; end);
 	row.alwaysLabel = label(frame, "(0: always)", M, y - 30, "GameFontDisableSmall");
+	-- a passive's part: the kind of spell it goes with (in the place of "on"), and what a change changes
+	row.tag = dropDown("OursForgeTag" .. i, frame, 90, M + 172, y, tagItems, function (v)
+		local effect = effectsShown()[i];
+		effect.tag = v;
+		effect.spells = {};
+	end);
+	-- a kind of spell (one), or spells of yours (any number, ticked), each to the side; "Anything" for a "when"
+	UIDropDownMenu_Initialize(row.tag, function (self, level)
+		level = level or 1;
+		local effect = effectsShown()[i];
+		if ( not effect ) then return; end
+		local isWhen = R.KIND[effect.kind] and R.KIND[effect.kind].part == "when";
+		local named = effect.spells or {};
+		if ( level == 1 ) then
+			if ( isWhen ) then
+				local info = UIDropDownMenu_CreateInfo();
+				info.text = "Anything";
+				info.value = "any";
+				info.checked = #named == 0 and effect.tag == "any";
+				info.func = function ()
+					effect.tag, effect.spells = "any", {};
+					showEffects();
+					changed();
+					CloseDropDownMenus();
+				end;
+				UIDropDownMenu_AddButton(info, level);
+			end
+			for _, side in ipairs({ "Kinds of spell", "Your spells" }) do
+				local info = UIDropDownMenu_CreateInfo();
+				info.text = side;
+				info.value = side;
+				info.hasArrow = true;
+				info.notCheckable = true;
+				UIDropDownMenu_AddButton(info, level);
+			end
+		elseif ( UIDROPDOWNMENU_MENU_VALUE == "Kinds of spell" ) then
+			for _, item in ipairs(tagItems) do
+				local info = UIDropDownMenu_CreateInfo();
+				info.text = item.label;
+				info.value = item.value;
+				info.checked = #named == 0 and effect.tag == item.value;
+				info.func = function (b)
+					effect.tag, effect.spells = b.value, {};
+					showEffects();
+					changed();
+					CloseDropDownMenus();
+				end;
+				UIDropDownMenu_AddButton(info, level);
+			end
+		elseif ( UIDROPDOWNMENU_MENU_VALUE == "Your spells" ) then
+			local any = false;
+			for _, spell in ipairs(spells) do
+				if ( not spell.passive ) then
+					any = true;
+					local info = UIDropDownMenu_CreateInfo();
+					info.text = GetSpellInfo(spell.id) or spell.name;
+					info.value = spell.id;
+					info.isNotRadio = true;
+					info.keepShownOnClick = true;
+					local ticked = false;
+					for _, id in ipairs(named) do if ( id == spell.id ) then ticked = true; end end
+					info.checked = ticked;
+					info.func = function (b)
+						effect.spells = effect.spells or {};
+						local at;
+						for j, id in ipairs(effect.spells) do if ( id == b.value ) then at = j; end end
+						if ( at ) then table.remove(effect.spells, at); else table.insert(effect.spells, b.value); end
+						if ( #effect.spells == 0 ) then effect.tag = isWhen and "any" or "all"; end
+						showEffects();
+						changed();
+					end;
+					UIDropDownMenu_AddButton(info, level);
+				end
+			end
+			if ( not any ) then
+				local info = UIDropDownMenu_CreateInfo();
+				info.text = "(no spells of yours yet)";
+				info.notCheckable = true;
+				info.disabled = true;
+				UIDropDownMenu_AddButton(info, level);
+			end
+		end
+	end);
+	row.change = dropDown("OursForgeChange" .. i, frame, 100, M, y - 22, itemsOf(R.CHANGES, R.CHANGE_LABELS),
+		function (v) effectsShown()[i].change = v; end);
 	effectRows[i] = row;
 end
 
@@ -1009,7 +1337,7 @@ frame.effectRows = effectRows;   -- (for the window's tests)
 addButton = button("OursForgeAdd", frame, "Add effect", 100, M, EFFECTS_TOP - ROWS * 52, function ()
 	local effects = effectsShown();
 	if ( #effects < 8 ) then
-		table.insert(effects, R.NewEffect("damage"));
+		table.insert(effects, R.NewEffect((recipe.passive and #path == 0) and "modify" or "damage"));
 		showEffects();
 		changed();
 	end
@@ -1029,18 +1357,35 @@ local function setRow (row, effect)
 	row.highLabel:SetText(kind.highLabel or "to");
 	row.low:SetText(number(effect.low));
 	row.high:SetText(number(effect.high));
-	local timed = kind.aura or kind.lock or kind.lasting or kind.needsFor;
+	-- what is always on (a passive's own) has no length; a "when" has how often at most in its place
+	local always = recipe.passive and #path == 0 and not kind.part;
+	local timed = (kind.aura or kind.lock or kind.lasting or kind.needsFor or kind.part == "when") and not always;
 	show(row.seconds, timed);
 	show(row.forLabel, timed);
-	show(row.alwaysLabel, kind.lasting or (kind.aura and not kind.every and kind.key ~= "charm"));
-	row.forLabel:SetText(kind.lock and "lock" or "for");
+	show(row.alwaysLabel, (kind.lasting or (kind.aura and not kind.every and kind.key ~= "charm") or kind.part == "when") and not always);
+	row.alwaysLabel:SetText(kind.part == "when" and "s (0: any time)" or "(0: always)");
+	row.forLabel:SetText(kind.lock and "lock" or (kind.part == "when" and "at most every" or "for"));
 	row.seconds:SetText(number(effect.seconds or 0));
 	show(row.every, kind.every);
 	show(row.everyLabel, kind.every);
 	row.every:SetText(number(effect.every or 0));
 
 	-- what is made at you has no "on": a creature, a form or an element in its place
-	show(row.on, not (kind.creature or kind.form or kind.totem));
+	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part));
+	show(row.tag, kind.part);
+	row.tag.items = kind.part == "when" and whenTagItems or tagItems;
+	row.tag:SetValue(effect.tag or "all");
+	if ( kind.part and effect.spells and #effect.spells > 0 ) then
+		local names = {};
+		for _, id in ipairs(effect.spells) do
+			local name = GetSpellInfo(id);
+			for _, spell in ipairs(spells) do if ( spell.id == id ) then name = name or spell.name; end end
+			table.insert(names, name or ("Spell " .. id));
+		end
+		UIDropDownMenu_SetText(row.tag, table.concat(names, ", "));
+	end
+	show(row.change, kind.part == "modify");
+	row.change:SetValue(effect.change or "damage");
 	show(row.creature, kind.creature);
 	row.creature:SetText(creatureText(effect.creature));
 	show(row.form, kind.form);
@@ -1059,6 +1404,8 @@ local function setRow (row, effect)
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or 40)));
 	show(row.elites, kind.elites);
 	row.elites:SetChecked(effect.elites);
+	show(row.percent, kind.percent);
+	row.percent:SetChecked(effect.percent);
 	show(row.power, kind.shape);
 	row.power:SetValue(effect.power or "keep");
 	show(row.as, kind.shape);
@@ -1067,31 +1414,31 @@ local function setRow (row, effect)
 	-- What is shown, one after the other by how wide each is: a word, a box (whose frame reaches 5 to the left of
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
-	local order = { row.power, row.as, row.lowLabel, row.low, row.highLabel, row.high, row.aboveLabel, row.above, row.healthLabel,
+	local order = { row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.aboveLabel, row.above, row.healthLabel,
 		row.health, row.forLabel, row.seconds, row.alwaysLabel, row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,
 		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true };
-	local menus = { [row.power] = true, [row.as] = true };
+	local menus = { [row.change] = true, [row.power] = true, [row.as] = true };
 	for _, widget in ipairs(order) do
 		if ( widget:IsShown() ) then
 			widget:ClearAllPoints();
 			if ( menus[widget] ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x - 16, rowY[row] - 22);
 				x = x + widget.layoutWidth;
-			elseif ( widget == row.elites ) then
+			elseif ( widget == row.elites or widget == row.percent ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 24);
-				x = x + 22 + 40;
+				x = x + 22 + (widget == row.percent and 10 or 40);
 			elseif ( words[widget] ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 30);
-				x = x + (widget:GetStringWidth() or 0) + 10;
+				x = x + (widget:GetStringWidth() or 0) + 8;
 			else
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 26);
 				x = x + (widget:GetWidth() or 0) + 10;
 			end
 		end
 	end
-	show(row.when, (kind.aura and #path < 3) or (kind.totem and #path < 3));
-	if ( kind.totem ) then
+	show(row.when, (kind.aura and #path < 3 and not always) or (kind.totem and #path < 3) or (kind.trigger and #path == 0));
+	if ( kind.totem or kind.trigger ) then
 		row.when:SetText("Effects (" .. #(effect.inner or {}) .. ")");
 	else
 		local links = 0;
@@ -1100,7 +1447,28 @@ local function setRow (row, effect)
 	end
 end
 
+-- Where the effects stand: under the spell's fields, or a passive's text (which takes less room)
+local placedAt;
+local function placeRows (top)
+	if ( placedAt == top ) then return; end
+	placedAt = top;
+	local function at (widget, x, y) widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, y); end
+	at(effectsTitle, M, top + 22);
+	at(crumbs, M + 60, top + 21);
+	at(backButton, M + 292, top + 26);
+	for i, row in ipairs(effectRows) do
+		local y = top - (i - 1) * 52;
+		rowY[row] = y;
+		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
+		at(row.remove, M + 300, y - 2);
+		at(row.when, M + 290, y - 26);
+		at(row.creature, M + 156, y - 2);
+	end
+	at(addButton, M, top - ROWS * 52);
+end
+
 showEffects = function ()
+	placeRows(recipe.passive and -200 or EFFECTS_TOP);
 	local effects = effectsShown();
 	for i, row in ipairs(effectRows) do
 		local effect = effects[i];
@@ -1121,6 +1489,10 @@ showEffects = function ()
 		crumbs:SetText("");
 		backButton:Hide();
 	end
+	-- a passive has none of a spell's fields
+	if ( recipe.passive ) then spellPart:Hide(); passiveText:Show(); showPoints(); else spellPart:Show(); passiveText:Hide(); end
+	effectsTitle:SetText((recipe.passive and #path == 0) and "Parts" or "Effects");
+	addButton:SetText((recipe.passive and #path == 0) and "Add part" or "Add effect");
 	-- what the spell's own fields mean depends on others
 	if ( recipe.target == "self" ) then rangeBox:Hide(); meleeCheck:Hide(); rangeLabel:Hide(); yardsLabel:Hide(); else rangeBox:Show(); meleeCheck:Show(); rangeLabel:Show(); yardsLabel:Show(); end
 	if ( recipe.cast == "instant" ) then castBox:Hide(); castLabel:Hide(); else castBox:Show(); castLabel:Show(); end
@@ -1181,6 +1553,8 @@ showLook = function ()
 end
 local tip = CreateFrame("GameTooltip", "OursForgeTooltip", frame, "GameTooltipTemplate");
 local costText = label(frame, "", P, -350, "QuestFont");
+frame.costText = costText;
+frame.passiveText = passiveText;
 local notesText = frame:CreateFontString(nil, "ARTWORK", "QuestFontNormalSmall");
 notesText:SetPoint("TOPLEFT", P, -372);
 notesText:SetWidth(258);
@@ -1215,7 +1589,7 @@ local function showEditing ()
 	else
 		forgeButton:SetText("Forge");
 		saveNewButton:Hide();
-		editingText:SetText("A new spell.");
+		editingText:SetText(recipe.passive and "A new passive." or "A new spell.");
 	end
 	for _, b in ipairs(listButtons) do
 		if ( b.id and b.id == editing ) then b:LockHighlight(); else b:UnlockHighlight(); end
@@ -1232,12 +1606,26 @@ end);
 saveNewButton = button("OursForgeSaveNew", frame, "Save as new", 120, P + 136, -566, function ()
 	StaticPopup_Show("OURSFORGE_FORGE", recipe.name);
 end);
-button("OursForgeNew", frame, "New spell", 90, 24, -566, function ()
-	recipe = R.New();
+local newMenu = CreateFrame("Frame", "OursForgeNewMenu", frame, "UIDropDownMenuTemplate");
+local function newOne (passive)
+	recipe = passive and R.NewPassive() or R.New();
 	selected = nil;
 	editing = nil;
 	showEditing();
 	showRecipe();
+end
+UIDropDownMenu_Initialize(newMenu, function (self, level)
+	for _, item in ipairs({ { "A spell", false }, { "A passive", true } }) do
+		local info = UIDropDownMenu_CreateInfo();
+		info.text = item[1];
+		info.notCheckable = true;
+		info.func = function () newOne(item[2]); CloseDropDownMenus(); end;
+		UIDropDownMenu_AddButton(info, level);
+	end
+end, "MENU");
+frame.newOne = newOne;   -- (for the window's tests)
+button("OursForgeNew", frame, "New...", 90, 24, -566, function (self)
+	ToggleDropDownMenu(1, nil, newMenu, self, 0, 0);
 end);
 local forgetButton = button("OursForgeForget", frame, "Forget", 84, 118, -566, function ()
 	if ( selected ) then
@@ -1493,7 +1881,18 @@ frame:SetScript("OnEvent", function (self, event, prefix, message)
 		elseif ( kind == "p" ) then
 			if ( req ~= request ) then return; end
 			local cost, power, records = string.match(body, "^(%d+):(%a+):(%d+)$");
-			costText:SetText("Costs " .. (cost or "?") .. " " .. (power or "") .. "  (" .. (records or "?") .. " record(s))");
+			if ( power == "points" ) then
+				-- a passive: what it takes of the pool, and what is left for it (one being changed gives its own back)
+				local left = pointsPool - pointsSpent;
+				for _, spell in ipairs(spells) do
+					if ( spell.id == editing and spell.passive ) then left = left + (tonumber(spell.cost) or 0); end
+				end
+				local over = (tonumber(cost) or 0) > left;
+				costText:SetText((over and "|cffa00000" or "") .. "Takes " .. (cost or "?") .. " points of " .. math.max(0, left) .. " left"
+					.. (over and "|r" or "") .. "  (" .. (records or "?") .. " record(s))");
+			else
+				costText:SetText("Costs " .. (cost or "?") .. " " .. (power or "") .. "  (" .. (records or "?") .. " record(s))");
+			end
 			notesText:SetText(#notes > 0 and ("|cff7a1a00Note:|r " .. table.concat(notes, "\n|cff7a1a00Note:|r ")) or "");
 			notes = {};
 			showPreview();
@@ -1533,9 +1932,15 @@ frame:SetScript("OnEvent", function (self, event, prefix, message)
 		elseif ( req and string.sub(req, 1, 1) == "n" ) then
 			showEffects();
 		end
-	elseif ( kind == "l" ) then
+	elseif ( kind == "l" or kind == "a" ) then
+		-- a spell ("l") or a passive ("a": what it costs is points)
 		local id, cost, name = string.match(rest, "^(%d+):(%d+):(.*)$");
-		if ( id ) then table.insert(spells, { id = tonumber(id), cost = cost, name = name }); end
+		if ( id ) then table.insert(spells, { id = tonumber(id), cost = cost, name = name, passive = kind == "a" }); end
+	elseif ( kind == "s" ) then
+		-- the character's points for passives: taken, and the pool
+		local spent, pool = string.match(rest, "^(%d+):(%d+)$");
+		pointsSpent, pointsPool = tonumber(spent) or 0, tonumber(pool) or 0;
+		showPoints();
 	elseif ( kind == "w" ) then
 		-- the resources the character may craft with, their own first
 		allowedPowers = {};

@@ -1,4 +1,5 @@
 #include "Spell_C.h"
+#include "WoW/Source/DB/OursSpellDB.h"
 #include "WoW/Source/Magic/Types.h"
 #include "Engine/Source/Base/CDataStore.h"
 #include "Engine/Source/ConsoleBase/ConsoleVar.h"
@@ -1256,7 +1257,8 @@ void CGUnit_C::ReleaseMissiles() {
 // VERIFY: 936f6df8 manual
 // OFFSET: 0x007FD970
 bool Spell_C_GetSpellModifiers(const SpellRec* spell, int32_t modifier, int32_t& flat, int32_t& pct) {
-    if (!spell->m_spellClassSet || spell->m_spellClassSet != s_spellClassSet) {
+    // Ours: a crafted spell takes the modifiers of its maker's passives, whatever the player's class family
+    if (!spell->m_spellClassSet || (spell->m_spellClassSet != s_spellClassSet && spell->m_spellClassSet != OursSpellDB::CRAFTED_FAMILY)) {
         flat = 0;
         pct = 100;
         return false;

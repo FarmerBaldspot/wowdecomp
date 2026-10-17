@@ -42,6 +42,10 @@ namespace OursSpellDB {
 
     inline bool IsCrafted(int32_t spellId) { return spellId >= FIRST_ID && spellId <= CRAFTED_LAST_ID; }
 
+    // The family of the forge's spells (no class has it): the passives' spell modifiers reach them, whatever the
+    // player's own class family (Spell_C_GetSpellModifiers)
+    constexpr int32_t CRAFTED_FAMILY = 14;
+
     // The spell book's tab of crafted spells: a skill line no row of SkillLine.dbc has, which the spell book's
     // tab code takes as the Spellforge's (SpellBookFrame.cpp, SpellBookFrame_Scripts.cpp: "Ours")
     constexpr int32_t SPELLBOOK_TAB = 0x5F000001;
