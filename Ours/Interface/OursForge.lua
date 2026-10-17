@@ -132,6 +132,8 @@ R.KINDS = {
 	{ key = "resurrect", label = "Resurrect a friend", word = "resurrect", amount = "two", inCombat = true, lowLabel = "health", highLabel = "mana" },
 	{ key = "soulstone", label = "Store a soul", word = "soulstone", amount = "one", aura = true, resEvery = true, lowLabel = "%" },
 	{ key = "revive_pet", label = "Revive your pet", word = "revive-pet", amount = "one", lowLabel = "%" },
+	-- conjuring: one of the game's conjured things (the server's list), so many
+	{ key = "conjure", label = "Conjure an item", word = "conjure", amount = "one", conjures = true, lowLabel = "how many" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -209,6 +211,7 @@ R.KIND_GROUPS = {
 	{ label = "Travel", keys = { "teleport", "blink", "leap_back", "water_walk", "water_breathing", "slow_fall", "hover", "fly",
 		"flight_speed", "swim_speed", "mount" } },
 	{ label = "Resurrection", keys = { "resurrect", "soulstone", "revive_pet" } },
+	{ label = "Conjuring", keys = { "conjure" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
@@ -275,6 +278,7 @@ function R.NewEffect (key)
 	if ( kind.key == "resurrect" ) then effect.low, effect.high, effect.inCombat = 500, 500, false; end
 	if ( kind.key == "soulstone" ) then effect.low, effect.resEvery = 30, 0; end
 	if ( kind.key == "revive_pet" ) then effect.low = 15; end
+	if ( kind.conjures ) then effect.item, effect.low = 0, 1; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -432,6 +436,9 @@ effectText = function (effect)
 	end
 	if ( kind.finds ) then
 		table.insert(parts, effect.track or (kind.finds == "type" and "undead" or "beast"));
+	end
+	if ( kind.conjures ) then
+		table.insert(parts, number(tonumber(effect.item) or 0));
 	end
 	if ( kind.place ) then
 		if ( effect.home or not effect.map ) then
@@ -762,6 +769,10 @@ readEffect = function (node, dropped)
 		-- the creature, then (summon) how many
 		effect.creature = table.remove(numbers, 1) or 0;
 	end
+	if ( kind.conjures ) then
+		-- the item, then how many
+		effect.item = table.remove(numbers, 1) or 0;
+	end
 	if ( kind.place and #numbers >= 4 ) then
 		effect.home = false;
 		effect.map, effect.x, effect.y, effect.z, effect.facing = numbers[1], numbers[2], numbers[3], numbers[4], numbers[5] or 0;
@@ -1081,6 +1092,15 @@ end
 -- Messages to the server
 local function send (body)
 	SendAddonMessage(PREFIX, body, "WHISPER", UnitName("player"));
+end
+
+-- What may be conjured: the server's list (asked for once, "I"; "i<entry>:<level>:<name>" each, then "j<count>")
+local conjurable, conjurableAsked, conjurableNames = {}, false, {};
+local function askConjurable ()
+	if ( not conjurableAsked ) then
+		conjurableAsked = true;
+		send("I");
+	end
 end
 
 -- The character's crafted spells, asked anew
@@ -1535,6 +1555,56 @@ for i = 1, ROWS do
 	end);
 	row.track = dropDown("OursForgeTrack" .. i, frame, 90, M + 172, y, itemsOf(R.TRACKS, R.TRACK_LABELS),
 		function (v) effectsShown()[i].track = v; end);
+	-- a conjure's item: the server's list by bands of level, each opening to the side
+	row.item = dropDown("OursForgeItem" .. i, frame, 110, M + 172, y, {}, function (v) effectsShown()[i].item = tonumber(v) or 0; end);
+	UIDropDownMenu_Initialize(row.item, function (self, level)
+		level = level or 1;
+		local effect = effectsShown()[i];
+		if ( not effect ) then return; end
+		local BANDS = { { 1, 20 }, { 21, 40 }, { 41, 60 }, { 61, 70 }, { 71, 200 } };
+		if ( level == 1 ) then
+			if ( #conjurable == 0 ) then
+				local info = UIDropDownMenu_CreateInfo();
+				info.text = "Asking the server...";
+				info.notCheckable = true;
+				info.disabled = true;
+				UIDropDownMenu_AddButton(info, level);
+				return;
+			end
+			for _, band in ipairs(BANDS) do
+				local any = false;
+				for _, item in ipairs(conjurable) do if ( item.level >= band[1] and item.level <= band[2] ) then any = true; end end
+				if ( any ) then
+					local info = UIDropDownMenu_CreateInfo();
+					info.text = "Item level " .. band[1] .. (band[2] < 200 and ("-" .. band[2]) or "+");
+					info.value = band[1];
+					info.hasArrow = true;
+					info.notCheckable = true;
+					UIDropDownMenu_AddButton(info, level);
+				end
+			end
+		else
+			for _, band in ipairs(BANDS) do
+				if ( UIDROPDOWNMENU_MENU_VALUE == band[1] ) then
+					for _, item in ipairs(conjurable) do
+						if ( item.level >= band[1] and item.level <= band[2] ) then
+							local info = UIDropDownMenu_CreateInfo();
+							info.text = item.name;
+							info.value = item.entry;
+							info.checked = tonumber(effect.item) == item.entry;
+							info.func = function (b)
+								effect.item = b.value;
+								showEffects();
+								changed();
+								CloseDropDownMenus();
+							end;
+							UIDropDownMenu_AddButton(info, level);
+						end
+					end
+				end
+			end
+		end
+	end, "MENU");
 	-- a teleport's: home, or here (where the character stands when it is picked), or the place it has
 	row.place = dropDown("OursForgePlace" .. i, frame, 100, M + 172, y, {}, function (v)
 		local effect = effectsShown()[i];
@@ -1750,9 +1820,15 @@ local function setRow (row, effect)
 	row.every:SetText(number(effect.every or 0));
 
 	-- what is made at you has no "on": a creature, a form or an element in its place
-	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds or kind.place));
+	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds or kind.place or kind.conjures));
 	show(row.track, kind.finds);
 	show(row.place, kind.place);
+	show(row.item, kind.conjures);
+	if ( kind.conjures ) then
+		askConjurable();
+		local entry = tonumber(effect.item) or 0;
+		UIDropDownMenu_SetText(row.item, entry > 0 and (conjurableNames[entry] or ("Item " .. entry)) or "Choose an item");
+	end
 	if ( kind.place ) then
 		local items = { { value = "home", label = "Home (hearthstone)" }, { value = "here", label = "Here (where you stand)" } };
 		if ( not effect.home and effect.map ) then
@@ -1875,7 +1951,7 @@ local function placeRows (top)
 	for i, row in ipairs(effectRows) do
 		local y = top - (i - 1) * 52;
 		rowY[row] = y;
-		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag, row.track, row.place }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
+		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag, row.track, row.place, row.item }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
 		at(row.remove, M + 300, y - 2);
 		at(row.when, M + 290, y - 26);
 		at(row.creature, M + 156, y - 2);
@@ -2343,6 +2419,14 @@ frame:SetScript("OnEvent", function (self, event, prefix, message)
 		if ( tonumber(req) == creatureReq ) then
 			table.insert(creatureFound, { entry = entry, level = tonumber(level), type = tonumber(ctype), name = name });
 		end
+	elseif ( kind == "i" ) then
+		local entry, level, name = string.match(rest, "^(%d+):(%d+):(.*)$");
+		if ( entry ) then
+			table.insert(conjurable, { entry = tonumber(entry), level = tonumber(level), name = name });
+			conjurableNames[tonumber(entry)] = name;
+		end
+	elseif ( kind == "j" ) then
+		showEffects();
 	elseif ( kind == "k" ) then
 		local req, count = string.match(rest, "^(%w+):(%d+)$");
 		if ( tonumber(req) == creatureReq ) then

@@ -10,6 +10,7 @@ for _, kind in ipairs(R.KINDS) do
 	recipe.name = "Kind " .. kind.key;
 	recipe.effects = { R.NewEffect(kind.key) };
 	if ( kind.key == "resurrect" ) then recipe.target = "friend"; end
+	if ( kind.conjures ) then recipe.effects[1].item = 5350; end
 	if ( kind.creature ) then recipe.effects[1].creature = 416; end
 	if ( kind.aura ) then
 		local link = { when = "expire", effects = { R.NewEffect("damage"), R.NewEffect("slow") } };
@@ -434,6 +435,32 @@ do
 	CHECK(string.find(text, "%(soulstone 20 %(cooldown 1800%)%)"), "and written again: " .. text);
 	table.insert(FORGE_TEXTS, text);
 end
+
+-- 11g. Conjuring: the server's list asked for once, an item picked from it
+OursForgeFrame.newOne(false);
+Mock.sent = {};
+Mock.pick(OursForgeKind1, "conjure");
+local askedFor = 0;
+for _, m in ipairs(Mock.sent) do if ( m.body == "I" ) then askedFor = askedFor + 1; end end
+CHECK(askedFor <= 1 and OursForgeItem1.shown and not OursForgeOn1.shown, "conjuring shows the item's menu (the list asked for once in the run: " .. askedFor .. " here)");
+Mock.receive("i5350:5:Conjured Water");
+Mock.receive("i5232:18:Minor Soulstone");
+Mock.receive("j2");
+CHECK(OursForgeItem1.menuText == "Choose an item", "nothing chosen yet: " .. tostring(OursForgeItem1.menuText));
+local effect = nil;
+for _, info in ipairs(Mock.entries(OursForgeItem1, 2, 1)) do
+	if ( info.value == 5232 ) then info.func(info); end
+end
+CHECK(OursForgeItem1.menuText == "Minor Soulstone", "picked from the menu: " .. tostring(OursForgeItem1.menuText));
+Mock.type(OursForgeLow1, "1");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(conjure 5232 1%)"), "the recipe says so: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+Mock.sent = {};
+Mock.pick(OursForgeKind1, "conjure");
+local again = false;
+for _, m in ipairs(Mock.sent) do if ( m.body == "I" ) then again = true; end end
+CHECK(not again, "and not asked for again");
 
 -- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
 Mock.pick(OursForgeKind1, "summon_pet");
