@@ -9,6 +9,8 @@
 #include "Engine/Source/lua-5.1/src/lauxlib.h"
 #include "Engine/Source/lua-5.1/src/lua.h"
 #include "WoW/Source/DB/DBClient/DBClient.h"
+#include "WoW/Source/DB/OursClassNames.h"
+#include "WoW/Source/ObjectMgrClient/ObjectMgrClient.h"
 #include "WoW/Source/DB/Rec/SpellIconRec.h"
 #include "WoW/Source/DB/Rec/SpellRec.h"
 
@@ -77,6 +79,13 @@ namespace {
         return found * 4;
     }
 
+    // SpellforgeIsForged(): whether the character played is one the realm's creation screen made (it has a class
+    // name of its own): the class underneath is then only its stats, and its talents are not shown
+    int32_t Script_SpellforgeIsForged(lua_State* L) {
+        lua_pushboolean(L, OursClassNames::Of(ClntObjMgrGetActivePlayer().m_guid) != nullptr);
+        return 1;
+    }
+
     // SpellforgeIconTexture(id): the texture of the SpellIcon row of that number, nil if there is none
     int32_t Script_SpellforgeIconTexture(lua_State* L) {
         int32_t const id = static_cast<int32_t>(luaL_checknumber(L, 1));
@@ -95,6 +104,7 @@ void LoadWindow(CStatus* status) {
     FrameScript_RegisterFunction("SpellforgeIcon", Script_SpellforgeIcon);
     FrameScript_RegisterFunction("SpellforgeIconTexture", Script_SpellforgeIconTexture);
     FrameScript_RegisterFunction("SpellforgeFindSpells", Script_SpellforgeFindSpells);
+    FrameScript_RegisterFunction("SpellforgeIsForged", Script_SpellforgeIsForged);
 
     // (Not counted into the game's own interface's signature: a digest of its own, thrown away.)
     MD5_CTX md5;

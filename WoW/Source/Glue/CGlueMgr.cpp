@@ -1,4 +1,5 @@
 #include "CGlueMgr.h"
+#include "WoW/Source/Glue/OursCreate.h"
 #include <cmath>
 #include <cstdarg>
 #include <cstring>
@@ -748,6 +749,7 @@ void CGlueMgr::Resume() {
         case 3: {
             FrameXML_FreeHashNodes();
             FrameXML_CreateFrames("Interface\\GlueXML\\GlueXML.toc", nullptr, &md5, &status);
+            OursCreate::Load(&status);     // ours: the Spellforge realm's creation screen (OursCreate.h)
 
             uint8_t digest[16];
             MD5Final(digest, &md5);

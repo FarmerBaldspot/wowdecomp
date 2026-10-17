@@ -909,6 +909,19 @@ for i = 1, 16 do
 	listButtons[i] = b;
 end
 
+-- the character's slots (the server says, "o"): spells and passives taken, of how many there may be
+local slots;
+local function showSlots ()
+	if ( not slots ) then
+		listTitle:SetText("Your spells (" .. #spells .. ")");
+		return;
+	end
+	local function part (what, taken, of)
+		return what .. " " .. (taken >= of and "|cffff8040" or "") .. taken .. "/" .. of .. (taken >= of and "|r" or "");
+	end
+	listTitle:SetText(part("Spells", slots.spells, slots.spellSlots) .. "  " .. part("Passives", slots.passives, slots.passiveSlots));
+end
+
 local function showList ()
 	for i, b in ipairs(listButtons) do
 		local spell = spells[i];
@@ -923,7 +936,7 @@ local function showList ()
 			b:Hide();
 		end
 	end
-	listTitle:SetText("Your spells (" .. #spells .. ")");
+	showSlots();
 end
 
 ------------------------------------------------------------------------------------------------------------------
@@ -1555,6 +1568,7 @@ local tip = CreateFrame("GameTooltip", "OursForgeTooltip", frame, "GameTooltipTe
 local costText = label(frame, "", P, -350, "QuestFont");
 frame.costText = costText;
 frame.passiveText = passiveText;
+frame.listTitle = listTitle;
 local notesText = frame:CreateFontString(nil, "ARTWORK", "QuestFontNormalSmall");
 notesText:SetPoint("TOPLEFT", P, -372);
 notesText:SetWidth(258);
@@ -1941,6 +1955,13 @@ frame:SetScript("OnEvent", function (self, event, prefix, message)
 		local spent, pool = string.match(rest, "^(%d+):(%d+)$");
 		pointsSpent, pointsPool = tonumber(spent) or 0, tonumber(pool) or 0;
 		showPoints();
+	elseif ( kind == "o" ) then
+		-- the character's slots: spells taken, spell slots, passives taken, passive slots
+		local a, b, c, d = string.match(rest, "^(%d+):(%d+):(%d+):(%d+)$");
+		if ( a ) then
+			slots = { spells = tonumber(a), spellSlots = tonumber(b), passives = tonumber(c), passiveSlots = tonumber(d) };
+			showSlots();
+		end
 	elseif ( kind == "w" ) then
 		-- the resources the character may craft with, their own first
 		allowedPowers = {};
@@ -2000,3 +2021,33 @@ SLASH_OURSFORGE1 = "/forge";
 SlashCmdList["OURSFORGE"] = function ()
 	if ( frame:IsShown() ) then frame:Hide(); else frame:Show(); end
 end;
+
+------------------------------------------------------------------------------------------------------------------
+-- A forged character has no talents (its passives are), so the talent button and window are not there for it. Its
+-- class underneath is only its stats; bots and characters of the old make keep theirs.
+
+local function forged ()
+	return SpellforgeIsForged and SpellforgeIsForged();
+end
+
+local function hideTalents ()
+	if ( not forged() or not TalentMicroButton ) then return; end
+	TalentMicroButton:Hide();
+	if ( AchievementMicroButton and SpellbookMicroButton ) then
+		-- the button after it moves up into its place (as the game's own anchors have it, 3 pixels in)
+		AchievementMicroButton:ClearAllPoints();
+		AchievementMicroButton:SetPoint("BOTTOMLEFT", SpellbookMicroButton, "BOTTOMRIGHT", -3, 0);
+	end
+	if ( PlayerTalentFrame and PlayerTalentFrame:IsShown() ) then HideUIPanel(PlayerTalentFrame); end
+end
+frame.hideTalents = hideTalents;
+
+if ( UpdateMicroButtons ) then hooksecurefunc("UpdateMicroButtons", hideTalents); end
+local toggleTalents = ToggleTalentFrame;
+function ToggleTalentFrame (...)
+	if ( forged() ) then return; end
+	if ( toggleTalents ) then return toggleTalents(...); end
+end
+local talentWatch = CreateFrame("Frame");
+talentWatch:RegisterEvent("PLAYER_ENTERING_WORLD");
+talentWatch:SetScript("OnEvent", hideTalents);

@@ -1,4 +1,5 @@
 #include "Unit_C.h"
+#include "WoW/Source/DB/OursClassNames.h"          // ours: the Spellforge realm's class names
 #include "WoW/Source/Object/ObjectClient/JeepDrive_C.h"
 #include <cmath>
 #include <new>
@@ -16396,6 +16397,15 @@ int32_t CGUnit_C::GetDisplayRaceGender(const CGUnit_C* unit, const NameCache* na
 const char* CGUnit_C::GetDisplayClassName(const CGUnit_C* unit, const NameCache* name, int32_t* displaySex) {
     int32_t sex = 2;
     ChrClassesRec* rec;
+
+    // Ours: the name a character of the Spellforge realm gave its class (OursClassNames.h)
+    uint64_t const oursGuid = unit ? unit->m_obj->m_guid.m_guid : (name ? name->m_guid.m_guid : 0);
+    if (const char* own = oursGuid ? OursClassNames::Of(oursGuid) : nullptr) {
+        if (displaySex) {
+            *displaySex = unit ? unit->m_unit->m_unitFieldBytes0[2] : static_cast<int32_t>(name->m_sex);
+        }
+        return own;
+    }
 
     if (unit) {
         rec = g_chrClassesDB.GetRecord(unit->m_unit->m_unitFieldBytes0[1]);

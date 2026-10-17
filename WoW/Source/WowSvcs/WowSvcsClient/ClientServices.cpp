@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <cstring>
 #include "ClientServices.h"
+#include "WoW/Source/DB/OursClassNames.h"          // ours: the Spellforge realm's class names
 #include "Engine/Source/BlizzardCore/SFile2-Core.h"
 #include "Engine/Source/ConsoleBase/ConsoleCommand.h"
 #include "Engine/Source/ConsoleBase/ConsoleVar.h"
@@ -1366,6 +1367,7 @@ void ClientConnection::RequestCharacterCreate(const CHARACTER_CREATE_INFO& info)
     msg.Put(info.m_hairColorID);
     msg.Put(info.m_facialHairStyleID);
     msg.Put(info.m_outfitID);
+    OursClassNames::AppendCreateChoice(&msg);   // ours: the Spellforge realm's resource and class name
     msg.Finalize();
     this->Send(&msg);
 }

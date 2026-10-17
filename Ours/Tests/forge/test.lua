@@ -603,3 +603,21 @@ do
 end
 Mock.pick(OursForgeKind1, "spell-power");
 CHECK(not OursForgePercent1.shown, "spell power has none");
+
+-- the slots: spells and passives taken, of how many there may be; a full one stands out
+Mock.receive("o3:5:2:2");
+CHECK(string.find(OursForgeFrame.listTitle.text, "Spells 3/5") and string.find(OursForgeFrame.listTitle.text, "Passives |cffff8040" .. "2/2"),
+	"the slots: " .. tostring(OursForgeFrame.listTitle.text));
+Mock.receive("o9:x");
+CHECK(string.find(OursForgeFrame.listTitle.text, "Spells 3/5"), "a garbled answer changes nothing");
+
+-- a forged character has no talent button (the next one moves up into its place) and no talent window
+for _, name in ipairs({ "TalentMicroButton", "AchievementMicroButton", "SpellbookMicroButton" }) do Mock.newObject("Button", name); end
+AchievementMicroButton.SetPoint = function (self, point, to) self.anchor = to; end
+SpellforgeIsForged = function () return false; end
+OursForgeFrame.hideTalents();
+CHECK(TalentMicroButton.shown, "a character of the old make keeps its talent button");
+SpellforgeIsForged = function () return true; end
+OursForgeFrame.hideTalents();
+CHECK(not TalentMicroButton.shown and AchievementMicroButton.anchor == SpellbookMicroButton, "a forged one has none, the next button in its place");
+CHECK(ToggleTalentFrame() == nil, "nor the talent window");

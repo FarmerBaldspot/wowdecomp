@@ -162,6 +162,12 @@ void CCharacterCreation::OnHide() {
 // VERIFY: f3353031 auto
 // OFFSET: 0x004DFFE0
 bool IsRaceClassValid(int32_t raceID, int32_t classID) {
+    // Ours: on the Spellforge realm every race may be every class but the death knight (the class is the stat
+    // distribution underneath; the server has a start for every pair, mod-spellforge's sf_create_info.sql)
+    if (classID != 6) {
+        return raceID > 0 && g_chrRacesDB.GetRecord(raceID) && g_chrClassesDB.GetRecord(classID);
+    }
+
     for (int32_t i = 0; i < g_charBaseInfoDB.m_numRecords; i++) {
         CharBaseInfoRec* rec = i >= 0 && i < g_charBaseInfoDB.m_numRecords ? &g_charBaseInfoDB.m_records[i] : nullptr;
 
@@ -707,6 +713,24 @@ void CCharacterCreation::RandomizeCharCustomization() {
 // VERIFY: f5f53eff manual
 // OFFSET: 0x004E1ED0
 void CCharacterCreation::CalcClasses(int32_t raceID) {
+    // Ours: every class but the death knight, for every race (IsRaceClassValid)
+    {
+        uint32_t ours = 0;
+        for (int32_t i = 0; i < g_chrClassesDB.m_numRecords; i++) {
+            if (IsRaceClassValid(raceID, g_chrClassesDB.m_records[i].m_id)) {
+                ours++;
+            }
+        }
+        CCharacterCreation::m_classes.SetCount(ours);
+        uint32_t index = 0;
+        for (int32_t i = 0; i < g_chrClassesDB.m_numRecords; i++) {
+            if (IsRaceClassValid(raceID, g_chrClassesDB.m_records[i].m_id)) {
+                CCharacterCreation::m_classes.m_data[index++] = &g_chrClassesDB.m_records[i];
+            }
+        }
+        return;
+    }
+
     uint32_t count = 0;
 
     for (int32_t i = 0; static_cast<uint32_t>(i) < static_cast<uint32_t>(g_charBaseInfoDB.m_numRecords); i++) {

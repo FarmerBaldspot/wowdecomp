@@ -1,4 +1,5 @@
 #include <cstdint>
+#include "WoW/Source/DB/OursClassNames.h"          // ours: the Spellforge realm's class names
 #include "Engine/Source/ConsoleBase/IConsole.h"
 #include "Engine/Source/FrameScript/FrameScript.h"
 #include "Engine/Source/FrameScript/FrameScript_Object.h"
@@ -211,6 +212,10 @@ static int32_t Script_UnitClass(lua_State* L) {
     if (!SStrCmpI(token, "player", STORM_MAX_STR)) {
         rec = g_chrClassesDB.GetRecord(ClientServices::GetCharacterClass());
         name = CGUnit_C::GetDisplayClassNameFromRecord(rec, ClientServices::GetCharacterSex(), nullptr);
+        // Ours: the class's own name, on the Spellforge realm
+        if (const char* own = OursClassNames::Of(ClntObjMgrGetActivePlayer().m_guid)) {
+            name = own;
+        }
     } else {
         WOWGUID guid = WOWGUID();
         Script_GetGUIDFromToken(token, guid, false);

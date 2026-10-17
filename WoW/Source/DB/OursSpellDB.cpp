@@ -2,6 +2,7 @@
 // OFFSET: none of them is in the game.
 
 #include "WoW/Source/DB/OursSpellDB.h"
+#include "WoW/Source/DB/OursClassNames.h"          // ours: the Spellforge realm's class names
 #include "Engine/Source/Base/CDataStore.h"
 #include "Engine/Source/Storm/H/storm.h"
 #include "WoW/Source/DB/DBClient/DBClient.h"
@@ -213,6 +214,10 @@ int32_t OnCraftedSpells(void* param, NETMESSAGE msgId, uint32_t time, CDataStore
             Log("Spellforge: a message of skill rows ends early");
         }
         msg->m_read = msg->m_size;
+        return 1;
+    }
+    if (mark == OursClassNames::MARK) {
+        OursClassNames::Take(msg);
         return 1;
     }
     if (mark != MARK) {

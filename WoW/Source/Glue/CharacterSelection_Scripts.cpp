@@ -1,4 +1,5 @@
 #include "CharacterSelection.h"
+#include "WoW/Source/DB/OursClassNames.h"          // ours: the Spellforge realm's class names
 #include <cstdint>
 #include "Engine/Source/BlizzardCore/SFile2-Core.h"
 #include "Engine/Source/Frame/CScriptObject.h"
@@ -109,6 +110,10 @@ static int32_t Script_GetCharacterInfo(lua_State* L) {
     lua_pushstring(L, raceName ? raceName : "");
 
     const char* className = CGUnit_C::GetDisplayClassNameFromRecord(g_chrClassesDB.GetRecord(display->m_characterInfo.m_classID), display->m_characterInfo.m_sexID, nullptr);
+    // Ours: the class's own name, on the Spellforge realm
+    if (const char* own = OursClassNames::Of(display->m_characterInfo.m_guid.m_guid)) {
+        className = own;
+    }
     lua_pushstring(L, className ? className : "");
 
     lua_pushnumber(L, display->m_characterInfo.m_experienceLevel);

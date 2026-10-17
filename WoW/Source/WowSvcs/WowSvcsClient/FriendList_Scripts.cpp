@@ -1,4 +1,5 @@
 #include "FriendList.h"
+#include "WoW/Source/DB/OursClassNames.h"          // ours: the Spellforge realm's class names
 #include <cstdint>
 #include "Engine/Source/FrameScript/FrameScript.h"
 #include "Engine/Source/FrameScript/FrameScript_Object.h"
@@ -115,6 +116,10 @@ static int32_t Script_GetWhoInfo(lua_State* L) {
     lua_pushstring(L, raceName);
     ChrClassesRec* chrClass = g_chrClassesDB.GetRecord(result.m_class);
     const char* className = CGUnit_C::GetDisplayClassNameFromRecord(chrClass, result.m_gender, nullptr);
+    // Ours: the class's own name, on the Spellforge realm (the who list knows names only)
+    if (const char* own = OursClassNames::OfName(result.m_name)) {
+        className = own;
+    }
 
     if (!className) {
         className = FrameScript_GetText("UNKNOWN", -1, GENDER_NOT_APPLICABLE);
