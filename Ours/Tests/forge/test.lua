@@ -462,6 +462,27 @@ local again = false;
 for _, m in ipairs(Mock.sent) do if ( m.body == "I" ) then again = true; end end
 CHECK(not again, "and not asked for again");
 
+-- 11h. Polymorph and drains: a creature's shape on an enemy, health and mana drained with what comes back
+do
+	local back = R.FromText('(spell (name "Toad") (target enemy) (range 30) (cast 1.5) (polymorph 13321 (for 20)) '
+		.. '(drain 19 (every 3) (for 24) (heals 15)) (drain-mana 1 (every 2) (for 8) (gives 300)))');
+	CHECK(back and back.effects[1].kind == "polymorph" and back.effects[1].creature == 13321 and back.effects[1].seconds == 20,
+		"a polymorph read back");
+	CHECK(back and back.effects[2].kind == "drain" and back.effects[2].share == 15 and back.effects[3].kind == "drain_mana"
+		and back.effects[3].share == 300, "drains with what comes back read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(polymorph 13321 %(for 20%)%)") and string.find(text, "%(heals 15%)") and string.find(text, "%(gives 300%)"),
+		"and written again: " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "drain");
+CHECK(OursForgeShare1.shown and OursForgeEvery1.shown, "a drain has its ticks and what of it heals");
+Mock.type(OursForgeShare1, "50");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(heals 50%)"), "the recipe says so: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+
 -- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
 Mock.pick(OursForgeKind1, "summon_pet");
 OursForgeCreature1.scripts.OnClick(OursForgeCreature1);

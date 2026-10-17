@@ -134,6 +134,12 @@ R.KINDS = {
 	{ key = "revive_pet", label = "Revive your pet", word = "revive-pet", amount = "one", lowLabel = "%" },
 	-- conjuring: one of the game's conjured things (the server's list), so many
 	{ key = "conjure", label = "Conjure an item", word = "conjure", amount = "one", conjures = true, lowLabel = "how many" },
+	-- shapes forced on others (a creature's), and drains (share: what of it comes to the caster, percent)
+	{ key = "polymorph", label = "Polymorph", word = "polymorph", amount = "none", aura = true, creature = true },
+	{ key = "transform", label = "A creature's shape", word = "transform", amount = "none", aura = true, creature = true },
+	{ key = "pacify", label = "No attacks or spells", word = "pacify", amount = "none", aura = true },
+	{ key = "drain", label = "Drain health", word = "drain", amount = "one", aura = true, every = true, share = "heals", lowLabel = "tick" },
+	{ key = "drain_mana", label = "Drain mana", word = "drain-mana", amount = "one", aura = true, every = true, share = "gives", lowLabel = "%" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -198,9 +204,10 @@ end
 
 -- The menu of kinds in groups (one list of them all is taller than the screen)
 R.KIND_GROUPS = {
-	{ label = "Damage and healing", keys = { "damage", "heal", "weapon", "dot", "hot", "absorb" } },
-	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy", "combo" } },
-	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disorient", "disarm", "taunt", "interrupt", "knockback", "charge" } },
+	{ label = "Damage and healing", keys = { "damage", "heal", "weapon", "dot", "hot", "absorb", "drain" } },
+	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy", "combo", "drain_mana" } },
+	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disorient", "polymorph", "pacify", "disarm", "taunt",
+		"interrupt", "knockback" } },
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
 	{ label = "Protection", keys = { "immune", "immune_all", "immune_magic", "immune_physical", "break", "tenacity", "reflect",
 		"thorns", "mana_shield", "share_damage", "pushback" } },
@@ -208,7 +215,7 @@ R.KIND_GROUPS = {
 		"threat", "vulnerable" } },
 	{ label = "Stealth and senses", keys = { "stealth", "invisible", "see_stealth", "see_invisible", "track", "track_stealthed", "marked",
 		"lose_threat", "aggro_range", "feign_death", "leave_combat", "damage_versus" } },
-	{ label = "Travel", keys = { "teleport", "blink", "leap_back", "water_walk", "water_breathing", "slow_fall", "hover", "fly",
+	{ label = "Travel", keys = { "charge", "teleport", "blink", "leap_back", "water_walk", "water_breathing", "slow_fall", "hover", "fly",
 		"flight_speed", "swim_speed", "mount" } },
 	{ label = "Resurrection", keys = { "resurrect", "soulstone", "revive_pet" } },
 	{ label = "Conjuring", keys = { "conjure" } },
@@ -217,7 +224,7 @@ R.KIND_GROUPS = {
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
 		"resist" } },
 	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem" } },
-	{ label = "Shapes", keys = { "shape_form", "shape_creature" } },
+	{ label = "Shapes", keys = { "shape_form", "shape_creature", "transform" } },
 };
 -- A passive's own: what is always on, and its parts
 R.PASSIVE_GROUPS = {
@@ -279,6 +286,9 @@ function R.NewEffect (key)
 	if ( kind.key == "soulstone" ) then effect.low, effect.resEvery = 30, 0; end
 	if ( kind.key == "revive_pet" ) then effect.low = 15; end
 	if ( kind.conjures ) then effect.item, effect.low = 0, 1; end
+	if ( kind.key == "polymorph" or kind.key == "transform" ) then effect.creature = 16372; end     -- (the sheep)
+	if ( kind.share ) then effect.share = 100; end
+	if ( kind.key == "drain_mana" ) then effect.low = 2; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -347,6 +357,10 @@ local function specialText (effect, kind)
 	elseif ( kind.key == "summon_pet" ) then
 		table.insert(parts, number(effect.creature));
 		if ( seconds > 0 ) then table.insert(parts, "(for " .. number(seconds) .. ")"); end
+	elseif ( kind.key == "polymorph" or kind.key == "transform" ) then
+		table.insert(parts, number(effect.creature));
+		if ( seconds > 0 ) then table.insert(parts, "(for " .. number(seconds) .. ")"); end
+		if ( effect.on and effect.on ~= "default" ) then table.insert(parts, "(on " .. effect.on .. ")"); end
 	elseif ( kind.key == "mount" ) then
 		table.insert(parts, number(effect.creature));
 		table.insert(parts, number(tonumber(effect.low) or 60));
@@ -479,6 +493,9 @@ effectText = function (effect)
 	end
 	if ( kind.charges and (tonumber(effect.charges) or 0) > 0 ) then
 		table.insert(parts, "(charges " .. number(effect.charges) .. ")");
+	end
+	if ( kind.share and (tonumber(effect.share) or 100) ~= 100 ) then
+		table.insert(parts, "(" .. kind.share .. " " .. number(effect.share) .. ")");
 	end
 	if ( kind.inCombat and effect.inCombat ) then
 		table.insert(parts, "(in-combat)");
@@ -719,6 +736,7 @@ readEffect = function (node, dropped)
 			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
 			elseif ( key == "charges" and kind.charges ) then effect.charges = numberOf(child[2]) or 0;
 			elseif ( key == "in-combat" and kind.inCombat ) then effect.inCombat = true;
+			elseif ( kind.share and key == kind.share ) then effect.share = numberOf(child[2]) or 100;
 			elseif ( key == "cooldown" and kind.resEvery ) then effect.resEvery = numberOf(child[2]) or 0;
 			elseif ( key == "per-combo" ) then effect.perCombo = numberOf(child[2]) or 0;
 			elseif ( key == "per-combo-for" ) then effect.perComboFor = numberOf(child[2]) or 0;
@@ -1518,6 +1536,8 @@ for i = 1, ROWS do
 	row.inCombat:SetHeight(22);
 	_G["OursForgeInCombat" .. i .. "Text"]:SetText("in combat");
 	row.inCombat:SetScript("OnClick", function (self) effectsShown()[i].inCombat = self:GetChecked() and true or false; changed(); end);
+	row.shareLabel = label(frame, "heals %", M + 80, y - 30, "GameFontHighlightSmall");
+	row.share = editBox("OursForgeShare" .. i, frame, 26, M + 100, y - 26, function (t) effectsShown()[i].share = tonumber(t) or 100; end);
 	row.resEveryLabel = label(frame, "every s", M + 80, y - 30, "GameFontHighlightSmall");
 	row.resEvery = editBox("OursForgeResEvery" .. i, frame, 34, M + 100, y - 26, function (t) effectsShown()[i].resEvery = tonumber(t) or 0; end);
 	row.chargesLabel = label(frame, "next", M + 80, y - 30, "GameFontHighlightSmall");
@@ -1861,6 +1881,10 @@ local function setRow (row, effect)
 	show(row.change, kind.part == "modify" or kind.changes);
 	show(row.inCombat, kind.inCombat);
 	row.inCombat:SetChecked(effect.inCombat);
+	show(row.share, kind.share);
+	show(row.shareLabel, kind.share);
+	row.shareLabel:SetText(kind.share == "gives" and "give%" or "heal%");
+	row.share:SetText(number(tonumber(effect.share) or 100));
 	show(row.resEvery, kind.resEvery);
 	show(row.resEveryLabel, kind.resEvery);
 	row.resEvery:SetText(number(tonumber(effect.resEvery) or 0));
@@ -1880,7 +1904,7 @@ local function setRow (row, effect)
 	show(row.health, kind.health);
 	show(row.healthLabel, kind.health);
 	row.health:SetText(number(effect.health or 0));
-	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and not kind.resEvery and (effect.on == "group" or effect.on == "party"));
+	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and not kind.resEvery and not kind.share and (effect.on == "group" or effect.on == "party"));
 	show(row.radius, reaches);
 	show(row.radiusLabel, reaches);
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));
@@ -1905,11 +1929,11 @@ local function setRow (row, effect)
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
 	local order = { row.mechanics, row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.perComboLabel, row.perCombo, row.ownSpeed,
-		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.chargesLabel, row.charges, row.resEveryLabel, row.resEvery, row.inCombat, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
+		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.chargesLabel, row.charges, row.resEveryLabel, row.resEvery, row.inCombat, row.shareLabel, row.share, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
 		row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,
 		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true,
-		[row.perComboLabel] = true, [row.perComboForLabel] = true, [row.chargesLabel] = true, [row.resEveryLabel] = true };
+		[row.perComboLabel] = true, [row.perComboForLabel] = true, [row.chargesLabel] = true, [row.resEveryLabel] = true, [row.shareLabel] = true };
 	local menus = { [row.change] = true, [row.power] = true, [row.as] = true };
 	for _, widget in ipairs(order) do
 		if ( widget:IsShown() ) then
