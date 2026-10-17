@@ -37,9 +37,9 @@ R.KINDS = {
 	{ key = "dot", label = "Damage over time", word = "dot", amount = "one", aura = true, every = true, lowLabel = "a tick" },
 	{ key = "hot", label = "Heal over time", word = "hot", amount = "one", aura = true, every = true, lowLabel = "a tick" },
 	{ key = "absorb", label = "Absorb shield", word = "absorb", amount = "one", aura = true },
-	{ key = "energize_mana", label = "Restore mana", word = "energize", extra = "mana", amount = "one" },
-	{ key = "energize_rage", label = "Give rage", word = "energize", extra = "rage", amount = "one" },
-	{ key = "energize_energy", label = "Give energy", word = "energize", extra = "energy", amount = "one" },
+	{ key = "energize_mana", label = "Restore mana", word = "energize", extra = "mana", amount = "one", percent = true },
+	{ key = "energize_rage", label = "Give rage", word = "energize", extra = "rage", amount = "one", percent = true },
+	{ key = "energize_energy", label = "Give energy", word = "energize", extra = "energy", amount = "one", percent = true },
 	{ key = "combo", label = "Combo points", word = "combo-points", amount = "one", lowLabel = "+" },
 	{ key = "slow", label = "Slow", word = "slow", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "root", label = "Root", word = "root", amount = "none", aura = true },
@@ -146,6 +146,44 @@ R.KINDS = {
 	{ key = "polymorph", label = "Polymorph", word = "polymorph", amount = "none", aura = true, creature = true },
 	{ key = "transform", label = "A creature's shape", word = "transform", amount = "none", aura = true, creature = true },
 	{ key = "pacify", label = "No attacks or spells", word = "pacify", amount = "none", aura = true },
+	-- single words of the game's (2026-10-17)
+	{ key = "heal_percent", label = "Heal % of health", word = "heal-percent", amount = "one", aura = true, every = true, lowLabel = "%" },
+	{ key = "leech", label = "Drain health at once", word = "leech", amount = "one", share = "heals" },
+	{ key = "heal_full", label = "Heal to full", word = "heal-full", amount = "none" },
+	{ key = "power_regen_mana", label = "Mana regeneration", word = "power-regen", extra = "mana", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "power_regen_rage", label = "Rage regeneration", word = "power-regen", extra = "rage", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "power_regen_energy", label = "Energy regeneration", word = "power-regen", extra = "energy", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "mana_percent", label = "Mana % of the most", word = "mana-percent", amount = "one", aura = true, every = true, lowLabel = "%" },
+	{ key = "regen_while_casting", label = "Regen while casting", word = "regen-while-casting", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "no_regen", label = "No regeneration", word = "no-regen", amount = "none", aura = true },
+	{ key = "mana_burn", label = "Burn mana", word = "mana-burn", amount = "one", share = "hurts" },
+	{ key = "bonus_health", label = "More health", word = "bonus-health", amount = "one", aura = true },
+	{ key = "healing_done", label = "Healing done", word = "healing-done", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "block_value", label = "Block value", word = "block-value", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "deflect", label = "Deflect spells", word = "deflect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "area_damage_taken", label = "Area damage taken", word = "area-damage-taken", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "damage_taken_points", label = "Damage taken (points)", word = "damage-taken-points", amount = "one", aura = true },
+	{ key = "healing_taken_points", label = "Healing taken (points)", word = "healing-taken-points", amount = "one", aura = true },
+	{ key = "bleed_damage_taken", label = "Bleed damage taken", word = "bleed-damage-taken", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "dispel_resist", label = "Resist dispels", word = "dispel-resist", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "shorter_magic", label = "Shorter magic effects", word = "shorter-effects", extra = "magic", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "shorter_curse", label = "Shorter curses", word = "shorter-effects", extra = "curse", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "shorter_disease", label = "Shorter diseases", word = "shorter-effects", extra = "disease", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "shorter_poison", label = "Shorter poisons", word = "shorter-effects", extra = "poison", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "no_attacks", label = "No attacks", word = "no-attacks", amount = "none", aura = true },
+	{ key = "ranged_attack_power", label = "Ranged attack power", word = "ranged-attack-power", amount = "one", aura = true, percent = true, lowLabel = "by" },
+	{ key = "ranged_haste", label = "Ranged attack speed", word = "ranged-haste", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "ranged_power_against", label = "Easier to shoot", word = "ranged-power-against", amount = "one", aura = true, lowLabel = "AP" },
+	{ key = "keep_combo_points", label = "Keep combo points", word = "keep-combo-points", amount = "one", aura = true },
+	{ key = "threat_points", label = "Threat (points)", word = "threat-points", amount = "one" },
+	{ key = "distract", label = "Distract", word = "distract", amount = "one", lowLabel = "sec." },
+	{ key = "steal_buff", label = "Steal a buff", word = "steal-buff", amount = "one" },
+	{ key = "pick_pocket", label = "Pick pocket", word = "pick-pocket", amount = "none" },
+	{ key = "size", label = "Size", word = "size", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "untrackable", label = "Untrackable", word = "untrackable", amount = "none", aura = true },
+	{ key = "see_buffs", label = "See its effects", word = "see-buffs", amount = "none", aura = true },
+	{ key = "beast_lore", label = "Beast lore", word = "beast-lore", amount = "none", aura = true },
+	{ key = "safe_fall", label = "Safe fall", word = "safe-fall", amount = "one", aura = true, lowLabel = "yd" },
 	{ key = "drain", label = "Drain health", word = "drain", amount = "one", aura = true, every = true, share = "heals", lowLabel = "tick" },
 	{ key = "drain_mana", label = "Drain mana", word = "drain-mana", amount = "one", aura = true, every = true, share = "gives", lowLabel = "%" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
@@ -212,8 +250,10 @@ end
 
 -- The menu of kinds in groups (one list of them all is taller than the screen)
 R.KIND_GROUPS = {
-	{ label = "Damage and healing", keys = { "damage", "heal", "weapon", "dot", "hot", "absorb", "drain" } },
-	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy", "combo", "drain_mana" } },
+	{ label = "Damage and healing", keys = { "damage", "heal", "weapon", "dot", "hot", "absorb", "drain", "heal_percent", "leech",
+		"heal_full" } },
+	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy", "combo", "drain_mana", "power_regen_mana",
+		"power_regen_rage", "power_regen_energy", "mana_percent", "regen_while_casting", "no_regen", "mana_burn" } },
 	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disorient", "polymorph", "pacify", "disarm", "taunt",
 		"interrupt", "knockback" } },
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
@@ -229,7 +269,13 @@ R.KIND_GROUPS = {
 	{ label = "Conjuring and imbues", keys = { "conjure", "imbue" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
-	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken" } },
+	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
+		"bonus_health", "healing_done" } },
+	{ label = "Defence", keys = { "block_value", "deflect", "area_damage_taken", "damage_taken_points", "healing_taken_points",
+		"bleed_damage_taken", "dispel_resist", "shorter_magic", "shorter_curse", "shorter_disease", "shorter_poison", "no_attacks" } },
+	{ label = "Ranged", keys = { "ranged_attack_power", "ranged_haste", "ranged_power_against" } },
+	{ label = "Other", keys = { "keep_combo_points", "threat_points", "distract", "steal_buff", "pick_pocket", "size", "untrackable",
+		"see_buffs", "beast_lore", "safe_fall" } },
 	{ label = "Resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow", "resist_arcane" } },
 	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem" } },
 	{ label = "Shapes", keys = { "shape_form", "shape_creature", "transform" } },
@@ -246,6 +292,8 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
 	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus" } },
 	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed", "soulstone" } },
+	{ label = "Always on: more", keys = { "ranged_attack_power", "ranged_haste", "bonus_health", "healing_done", "power_regen_mana",
+		"block_value", "deflect", "area_damage_taken", "regen_while_casting", "shorter_magic", "safe_fall", "untrackable" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -295,10 +343,13 @@ function R.NewEffect (key)
 	if ( kind.key == "resurrect" ) then effect.low, effect.high, effect.inCombat = 500, 500, false; end
 	if ( kind.key == "soulstone" ) then effect.low, effect.resEvery = 30, 0; end
 	if ( kind.key == "revive_pet" ) then effect.low = 15; end
+	if ( kind.key == "steal_buff" or kind.key == "keep_combo_points" ) then effect.low = 1; end
+	if ( kind.key == "safe_fall" ) then effect.low = 17; end
+	if ( kind.key == "distract" ) then effect.low = 10; end
 	if ( kind.picks ) then effect.item = 0; end
 	if ( kind.conjures ) then effect.low = 1; end
 	if ( kind.key == "polymorph" or kind.key == "transform" ) then effect.creature = 16372; end     -- (the sheep)
-	if ( kind.share ) then effect.share = 100; end
+	if ( kind.share ) then effect.share = kind.share == "hurts" and 50 or 100; end
 	if ( kind.key == "drain_mana" ) then effect.low = 2; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
@@ -505,7 +556,8 @@ effectText = function (effect)
 	if ( kind.charges and (tonumber(effect.charges) or 0) > 0 ) then
 		table.insert(parts, "(charges " .. number(effect.charges) .. ")");
 	end
-	if ( kind.share and (tonumber(effect.share) or 100) ~= 100 ) then
+	local shareUsual = kind.share == "hurts" and 50 or 100;
+	if ( kind.share and (tonumber(effect.share) or shareUsual) ~= shareUsual ) then
 		table.insert(parts, "(" .. kind.share .. " " .. number(effect.share) .. ")");
 	end
 	if ( kind.inCombat and effect.inCombat ) then
@@ -1908,7 +1960,7 @@ local function setRow (row, effect)
 	row.inCombat:SetChecked(effect.inCombat);
 	show(row.share, kind.share);
 	show(row.shareLabel, kind.share);
-	row.shareLabel:SetText(kind.share == "gives" and "give%" or "heal%");
+	row.shareLabel:SetText(kind.share == "gives" and "give%" or kind.share == "hurts" and "dmg%" or "heal%");
 	row.share:SetText(number(tonumber(effect.share) or 100));
 	show(row.resEvery, kind.resEvery);
 	show(row.resEveryLabel, kind.resEvery);
@@ -1929,7 +1981,9 @@ local function setRow (row, effect)
 	show(row.health, kind.health);
 	show(row.healthLabel, kind.health);
 	row.health:SetText(number(effect.health or 0));
-	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and not kind.resEvery and not kind.share and (effect.on == "group" or effect.on == "party"));
+	local inArea = recipe.shape == "area" and effectsShown() == recipe.effects;
+	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and not kind.resEvery and not kind.share
+		and (effect.on == "group" or (effect.on == "party" and not inArea)));
 	show(row.radius, reaches);
 	show(row.radiusLabel, reaches);
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));

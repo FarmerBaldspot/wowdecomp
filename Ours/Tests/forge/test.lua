@@ -12,6 +12,7 @@ for _, kind in ipairs(R.KINDS) do
 	if ( kind.key == "resurrect" ) then recipe.target = "friend"; end
 	if ( kind.conjures ) then recipe.effects[1].item = 5350; end
 	if ( kind.picks == "imbue" ) then recipe.target = "self"; recipe.effects[1].item = 283; end
+	if ( kind.key == "distract" ) then recipe.target = "ground"; recipe.shape = "area"; recipe.radius = 10; end
 	if ( kind.creature ) then recipe.effects[1].creature = 416; end
 	if ( kind.aura ) then
 		local link = { when = "expire", effects = { R.NewEffect("damage"), R.NewEffect("slow") } };
@@ -496,6 +497,24 @@ CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(imbue 283%)"), "the rec
 Mock.pick(OursForgeKind1, "conjure");
 CHECK(OursForgeItem1.menuText == "Choose an item", "and the conjure's list is its own: " .. tostring(OursForgeItem1.menuText));
 
+-- 11j. The party within an area: (on party) on a heal around a friend, read and written, and no reach of its own
+do
+	local text = '(spell (name "Prayer") (icon 185) (school holy) (target friend) (range 40) (cast 3) (area 30 around target) '
+		.. '(heal 301 321 (on party)))';
+	local back = R.FromText(text);
+	CHECK(back and back.shape == "area" and back.effects[1].on == "party", "a heal on the party in an area read back");
+	CHECK(back and R.Text(back) == text, "and written the same: " .. (back and R.Text(back) or ""));
+	OursForgeFrame.newOne(false);
+	Mock.pick(OursForgeKind1, "heal");
+	Mock.pick(OursForgeShape, "area");
+	Mock.pick(OursForgeOn1, "party");
+	CHECK(not OursForgeRadius1.shown, "a party in the spell's area has no reach of its own to set");
+	Mock.pick(OursForgeShape, "single");
+	Mock.pick(OursForgeKind1, "stat_stamina");
+	Mock.pick(OursForgeOn1, "party");
+	CHECK(OursForgeRadius1.shown, "a buff on the party and raid has its reach");
+end
+
 -- 11h. Polymorph and drains: a creature's shape on an enemy, health and mana drained with what comes back
 do
 	local back = R.FromText('(spell (name "Toad") (target enemy) (range 30) (cast 1.5) (polymorph 13321 (for 20)) '
@@ -688,7 +707,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: travel,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: travel,Always on: more,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");
