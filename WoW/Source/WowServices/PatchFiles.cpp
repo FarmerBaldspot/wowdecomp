@@ -15,6 +15,14 @@ static int32_t CompareStrings(const void* a, const void* b, void* context) {
 int32_t PatchFiles::EnumPatchArchives(OS_FILE_DATA& data, void* param) {
     PatchFiles* files = static_cast<PatchFiles*>(param);
 
+    // Ours: the archives of the old realm's classless mod (Data\patch-Z.MPQ and Data\<locale>\patch-<locale>-Z.MPQ:
+    // its class table, which names every class "Hero", its spell and item tables) are left out. This client is for
+    // the Spellforge realm, whose server has no such mod; the original Wow.exe still reads them for the old realm.
+    const size_t length = SStrLen(data.fileName);
+    if (length >= 6 && SStrCmpI(data.fileName + length - 6, "-Z.MPQ", STORM_MAX_STR) == 0) {
+        return 0;
+    }
+
     char path[260];
     SStrPrintf(path, sizeof(path), "%s%s", files->m_directory, data.fileName);
 
