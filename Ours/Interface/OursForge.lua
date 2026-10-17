@@ -40,6 +40,7 @@ R.KINDS = {
 	{ key = "energize_mana", label = "Restore mana", word = "energize", extra = "mana", amount = "one" },
 	{ key = "energize_rage", label = "Give rage", word = "energize", extra = "rage", amount = "one" },
 	{ key = "energize_energy", label = "Give energy", word = "energize", extra = "energy", amount = "one" },
+	{ key = "combo", label = "Combo points", word = "combo-points", amount = "one", lowLabel = "+" },
 	{ key = "slow", label = "Slow", word = "slow", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "root", label = "Root", word = "root", amount = "none", aura = true },
 	{ key = "stun", label = "Stun", word = "stun", amount = "none", aura = true },
@@ -130,7 +131,7 @@ end
 -- The menu of kinds in groups (one list of them all is taller than the screen)
 R.KIND_GROUPS = {
 	{ label = "Damage and healing", keys = { "damage", "heal", "weapon", "dot", "hot", "absorb" } },
-	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy" } },
+	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy", "combo" } },
 	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disorient", "disarm", "taunt", "interrupt", "knockback", "charge" } },
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
@@ -167,6 +168,7 @@ function R.NewEffect (key)
 	if ( kind.amount == "range" ) then effect.low, effect.high = 20, 30; end
 	if ( kind.amount == "count" ) then effect.low = 1; end
 	if ( kind.key == "weapon" ) then effect.low, effect.high = 100, 0; end
+	if ( kind.key == "combo" ) then effect.low, effect.high = 1, 1; end
 	if ( kind.key == "knockback" ) then effect.low, effect.high = 15, 5; end
 	if ( kind.key == "slow" ) then effect.low = 40; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
@@ -336,6 +338,13 @@ effectText = function (effect)
 	if ( kind.unnormalized and effect.unnormalized ) then
 		table.insert(parts, "(unnormalized)");
 	end
+	-- a finisher's: more, and longer, for each combo point spent
+	if ( R.Finisher and kind.amount ~= "none" and kind.key ~= "combo" and (tonumber(effect.perCombo) or 0) ~= 0 ) then
+		table.insert(parts, "(per-combo " .. number(effect.perCombo) .. ")");
+	end
+	if ( R.Finisher and kind.aura and (tonumber(effect.perComboFor) or 0) > 0 ) then
+		table.insert(parts, "(per-combo-for " .. number(effect.perComboFor) .. ")");
+	end
 	if ( kind.lock ) then
 		table.insert(parts, "(lock " .. number(effect.seconds) .. ")");
 	elseif ( kind.aura and (tonumber(effect.seconds) or 0) > 0 and not R.NoLength ) then
@@ -387,6 +396,7 @@ function R.Text (recipe)
 	if ( recipe.passive ) then
 		-- a passive: its name and icon, and its parts; what is always on has no length
 		local parts = { "passive", "(name " .. quote(recipe.name) .. ")", "(icon " .. number(recipe.icon) .. ")" };
+		R.Finisher = nil;
 		for _, effect in ipairs(recipe.effects) do
 			R.NoLength = true;
 			table.insert(parts, effectText(effect));
@@ -395,6 +405,7 @@ function R.Text (recipe)
 		return "(" .. table.concat(parts, " ") .. ")";
 	end
 	R.LastingShape = lastingShape(recipe);
+	R.Finisher = recipe.finisher and true or nil;
 	local parts = { "spell", "(name " .. quote(recipe.name) .. ")", "(icon " .. number(recipe.icon) .. ")",
 		"(school " .. recipe.school .. ")", "(target " .. recipe.target .. ")" };
 	local only = {};
@@ -403,6 +414,7 @@ function R.Text (recipe)
 	end
 	if ( #only > 0 ) then table.insert(parts, "(only " .. table.concat(only, " ") .. ")"); end
 	if ( recipe.oneAtATime ) then table.insert(parts, "(one-at-a-time)"); end
+	if ( recipe.finisher ) then table.insert(parts, "(finisher)"); end
 	-- the game's spell whose look it takes, if not the one the forge chooses by what it does
 	if ( (tonumber(recipe.look) or 0) > 0 ) then table.insert(parts, "(look " .. number(recipe.look) .. ")"); end
 	-- what it costs, if not the maker's own resource (one a form of theirs spends)
@@ -533,6 +545,8 @@ readEffect = function (node, dropped)
 			elseif ( key == "elites" ) then effect.elites = true;
 			elseif ( key == "percent" ) then effect.percent = true;
 			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
+			elseif ( key == "per-combo" ) then effect.perCombo = numberOf(child[2]) or 0;
+			elseif ( key == "per-combo-for" ) then effect.perComboFor = numberOf(child[2]) or 0;
 			elseif ( key == "outside-dungeons" ) then effect.outside = true;
 			elseif ( key == "power" ) then effect.power = wordOf(child[2]) or "keep";
 			elseif ( key == "as" ) then effect.as = wordOf(child[2]) or "none";
@@ -699,6 +713,7 @@ function R.FromText (text)
 		elseif ( key == "power" ) then recipe.power = wordOf(value);
 		elseif ( key == "look" ) then recipe.look = numberOf(value);
 		elseif ( key == "one-at-a-time" ) then recipe.oneAtATime = true;
+		elseif ( key == "finisher" ) then recipe.finisher = true;
 		elseif ( key == "only" ) then
 			recipe.only = {};
 			for j = 2, #node do
@@ -1009,6 +1024,14 @@ oneCheck:SetPoint("TOPLEFT", M + 244, -56);
 OursForgeOneAtATimeText:SetText("One at a time");
 oneCheck:SetScript("OnClick", function (self) recipe.oneAtATime = self:GetChecked() and true or nil; changed(); end);
 
+-- a finisher: needs combo points and spends them; its effects grow with them
+local finisherCheck = CreateFrame("CheckButton", "OursForgeFinisher", spellPart, "UICheckButtonTemplate");
+finisherCheck:SetWidth(24);
+finisherCheck:SetHeight(24);
+finisherCheck:SetPoint("TOPLEFT", M + 270, -96);
+OursForgeFinisherText:SetText("Finisher");
+finisherCheck:SetScript("OnClick", function (self) recipe.finisher = self:GetChecked() and true or nil; changed(); showEffects(); end);
+
 iconButton = CreateFrame("Button", "OursForgeIcon", frame);
 iconButton:SetWidth(36);
 iconButton:SetHeight(36);
@@ -1254,6 +1277,10 @@ for i = 1, ROWS do
 	end);
 	row.highLabel = label(frame, "", M + 80, y - 30, "GameFontHighlightSmall");
 	row.high = editBox("OursForgeHigh" .. i, frame, 34, M + 100, y - 26, function (t) effectsShown()[i].high = tonumber(t) or 0; end);
+	row.perComboLabel = label(frame, "+/pt", M + 80, y - 30, "GameFontHighlightSmall");
+	row.perCombo = editBox("OursForgePerCombo" .. i, frame, 30, M + 100, y - 26, function (t) effectsShown()[i].perCombo = tonumber(t) or 0; end);
+	row.perComboForLabel = label(frame, "+s/pt", M + 80, y - 30, "GameFontHighlightSmall");
+	row.perComboFor = editBox("OursForgePerComboFor" .. i, frame, 26, M + 100, y - 26, function (t) effectsShown()[i].perComboFor = tonumber(t) or 0; end);
 	row.forLabel = label(frame, "for", M + 142, y - 30, "GameFontHighlightSmall");
 	row.seconds = editBox("OursForgeFor" .. i, frame, 30, M + 162, y - 26, function (t) effectsShown()[i].seconds = tonumber(t) or 0; end);
 	row.everyLabel = label(frame, "every", M + 198, y - 30, "GameFontHighlightSmall");
@@ -1456,6 +1483,15 @@ local function setRow (row, effect)
 	local timed = (kind.aura or kind.lock or kind.lasting or kind.needsFor or kind.part == "when") and not always;
 	show(row.seconds, timed);
 	show(row.forLabel, timed);
+	local finishes = recipe.finisher and #path == 0;
+	local grows = finishes and kind.amount ~= "none" and kind.key ~= "combo" and not kind.creature;
+	show(row.perCombo, grows);
+	show(row.perComboLabel, grows);
+	row.perCombo:SetText(number(tonumber(effect.perCombo) or 0));
+	local longer = finishes and timed and kind.aura;
+	show(row.perComboFor, longer);
+	show(row.perComboForLabel, longer);
+	row.perComboFor:SetText(number(tonumber(effect.perComboFor) or 0));
 	show(row.alwaysLabel, (kind.lasting or (kind.aura and not kind.every and kind.key ~= "charm") or kind.part == "when") and not always);
 	row.alwaysLabel:SetText(kind.part == "when" and "s (0: any time)" or "(0: always)");
 	row.forLabel:SetText(kind.lock and "lock" or (kind.part == "when" and "at most every" or "for"));
@@ -1510,10 +1546,12 @@ local function setRow (row, effect)
 	-- What is shown, one after the other by how wide each is: a word, a box (whose frame reaches 5 to the left of
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
-	local order = { row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.ownSpeed, row.aboveLabel, row.above,
-		row.healthLabel, row.health, row.forLabel, row.seconds, row.alwaysLabel, row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
+	local order = { row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.perComboLabel, row.perCombo, row.ownSpeed,
+		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
+		row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,
-		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true };
+		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true,
+		[row.perComboLabel] = true, [row.perComboForLabel] = true };
 	local menus = { [row.change] = true, [row.power] = true, [row.as] = true };
 	for _, widget in ipairs(order) do
 		if ( widget:IsShown() ) then
@@ -1615,6 +1653,7 @@ local function showRecipe ()
 	onlyButton:SetText(onlyWords());
 	costMenu:SetValue(recipe.power or allowedPowers[1]);
 	oneCheck:SetChecked(recipe.oneAtATime);
+	finisherCheck:SetChecked(recipe.finisher);
 	if ( showLook ) then showLook(); end
 	path = {};
 	showEffects();

@@ -653,3 +653,16 @@ CHECK(string.find(R.Text(cheetah), "%(when struck 100 %(slow 50 %(for 4%) %(on s
 local seal = R.FromText('(spell (name "Seal") (target self) (watch (for 30) (when hit 20 (cooldown 1) (damage 50 fire))))');
 CHECK(seal and seal.effects[1].kind == "watch" and seal.effects[1].links[1].cooldown == 1, "a watch with a cooldown is read");
 CHECK(string.find(R.Text(seal), "%(watch %(for 30%) %(when hit 20 %(cooldown 1%) %(damage 50%)%)%)"), "and written again (fire is the spell's own school): " .. R.Text(seal));
+
+-- a builder and a finisher: combo points, the spell's (finisher), its effects' growth with points
+local bite = R.FromText('(spell (name "Bite") (target enemy) (range melee) (finisher) (damage 14 30 (per-combo 36)) (stun (for 0.1) (per-combo-for 1)))');
+CHECK(bite and bite.finisher and bite.effects[1].perCombo == 36 and bite.effects[2].perComboFor == 1, "a finisher and its growth are read");
+local biteText = R.Text(bite);
+CHECK(string.find(biteText, "%(finisher%)") and string.find(biteText, "%(damage 14 30 %(per%-combo 36%)%)") and string.find(biteText, "%(per%-combo%-for 1%)"),
+	"and written again: " .. biteText);
+table.insert(FORGE_TEXTS, biteText);
+local strike = R.FromText('(spell (name "Strike") (target enemy) (range melee) (weapon 100 3) (combo-points 1))');
+CHECK(strike and strike.effects[2].kind == "combo" and strike.effects[2].low == 1, "a builder's combo points are read");
+table.insert(FORGE_TEXTS, R.Text(strike));
+bite.finisher = nil;
+CHECK(not string.find(R.Text(bite), "per%-combo"), "without (finisher) no growth is written");
