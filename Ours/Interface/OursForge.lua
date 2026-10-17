@@ -78,6 +78,12 @@ R.KINDS = {
 	{ key = "regen", label = "Mana every 5 sec.", word = "regen", amount = "one", aura = true },
 	{ key = "health", label = "Health", word = "health", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "damage-taken", label = "Damage taken", word = "damage-taken", amount = "one", aura = true, lowLabel = "%" },
+	-- resistance by school (before the one to all magic, which the reader would take for any of them)
+	{ key = "resist_fire", label = "Resist fire", word = "resist", extra = "fire", amount = "one", aura = true },
+	{ key = "resist_frost", label = "Resist frost", word = "resist", extra = "frost", amount = "one", aura = true },
+	{ key = "resist_nature", label = "Resist nature", word = "resist", extra = "nature", amount = "one", aura = true },
+	{ key = "resist_shadow", label = "Resist shadow", word = "resist", extra = "shadow", amount = "one", aura = true },
+	{ key = "resist_arcane", label = "Resist arcane", word = "resist", extra = "arcane", amount = "one", aura = true },
 	{ key = "resist", label = "Resist all magic", word = "resist", amount = "one", aura = true },
 	-- protections; mechanics: kinds of control are ticked (immune to, freed of, shortened)
 	{ key = "immune_all", label = "Immune to all damage", word = "immune", extra = "all", amount = "none", aura = true },
@@ -133,7 +139,9 @@ R.KINDS = {
 	{ key = "soulstone", label = "Store a soul", word = "soulstone", amount = "one", aura = true, resEvery = true, lowLabel = "%" },
 	{ key = "revive_pet", label = "Revive your pet", word = "revive-pet", amount = "one", lowLabel = "%" },
 	-- conjuring: one of the game's conjured things (the server's list), so many
-	{ key = "conjure", label = "Conjure an item", word = "conjure", amount = "one", conjures = true, lowLabel = "how many" },
+	{ key = "conjure", label = "Conjure an item", word = "conjure", amount = "one", conjures = true, picks = "item", lowLabel = "how many" },
+	-- one of the game's temporary weapon enchantments on one's held weapon, for an hour (the server's list)
+	{ key = "imbue", label = "Imbue your weapon", word = "imbue", amount = "none", picks = "imbue" },
 	-- shapes forced on others (a creature's), and drains (share: what of it comes to the caster, percent)
 	{ key = "polymorph", label = "Polymorph", word = "polymorph", amount = "none", aura = true, creature = true },
 	{ key = "transform", label = "A creature's shape", word = "transform", amount = "none", aura = true, creature = true },
@@ -218,11 +226,11 @@ R.KIND_GROUPS = {
 	{ label = "Travel", keys = { "charge", "teleport", "blink", "leap_back", "water_walk", "water_breathing", "slow_fall", "hover", "fly",
 		"flight_speed", "swim_speed", "mount" } },
 	{ label = "Resurrection", keys = { "resurrect", "soulstone", "revive_pet" } },
-	{ label = "Conjuring", keys = { "conjure" } },
+	{ label = "Conjuring and imbues", keys = { "conjure", "imbue" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
-	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
-		"resist" } },
+	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken" } },
+	{ label = "Resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow", "resist_arcane" } },
 	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem" } },
 	{ label = "Shapes", keys = { "shape_form", "shape_creature", "transform" } },
 };
@@ -231,7 +239,9 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on", keys = { "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Always on: combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health",
-		"damage-taken", "resist" } },
+		"damage-taken" } },
+	{ label = "Always on: resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow",
+		"resist_arcane" } },
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
 	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus" } },
@@ -285,7 +295,8 @@ function R.NewEffect (key)
 	if ( kind.key == "resurrect" ) then effect.low, effect.high, effect.inCombat = 500, 500, false; end
 	if ( kind.key == "soulstone" ) then effect.low, effect.resEvery = 30, 0; end
 	if ( kind.key == "revive_pet" ) then effect.low = 15; end
-	if ( kind.conjures ) then effect.item, effect.low = 0, 1; end
+	if ( kind.picks ) then effect.item = 0; end
+	if ( kind.conjures ) then effect.low = 1; end
 	if ( kind.key == "polymorph" or kind.key == "transform" ) then effect.creature = 16372; end     -- (the sheep)
 	if ( kind.share ) then effect.share = 100; end
 	if ( kind.key == "drain_mana" ) then effect.low = 2; end
@@ -451,7 +462,7 @@ effectText = function (effect)
 	if ( kind.finds ) then
 		table.insert(parts, effect.track or (kind.finds == "type" and "undead" or "beast"));
 	end
-	if ( kind.conjures ) then
+	if ( kind.picks ) then
 		table.insert(parts, number(tonumber(effect.item) or 0));
 	end
 	if ( kind.place ) then
@@ -685,6 +696,12 @@ readEffect = function (node, dropped)
 	if ( word == "shape" ) then
 		kind = R.KIND[numberOf(node[2]) and "shape_creature" or "shape_form"];
 	end
+	if ( word == "resist" ) then
+		for j = 2, #node do
+			local school = wordOf(node[j]);
+			if ( not kind and school and R.KIND["resist_" .. school] ) then kind = R.KIND["resist_" .. school]; end
+		end
+	end
 	for _, k in ipairs(R.KINDS) do
 		if ( not kind and k.word == word and (not k.extra or k.extra == extra) ) then
 			kind = k;
@@ -787,8 +804,8 @@ readEffect = function (node, dropped)
 		-- the creature, then (summon) how many
 		effect.creature = table.remove(numbers, 1) or 0;
 	end
-	if ( kind.conjures ) then
-		-- the item, then how many
+	if ( kind.picks ) then
+		-- the item (an imbue's enchantment), then how many
 		effect.item = table.remove(numbers, 1) or 0;
 	end
 	if ( kind.place and #numbers >= 4 ) then
@@ -1112,12 +1129,18 @@ local function send (body)
 	SendAddonMessage(PREFIX, body, "WHISPER", UnitName("player"));
 end
 
--- What may be conjured: the server's list (asked for once, "I"; "i<entry>:<level>:<name>" each, then "j<count>")
-local conjurable, conjurableAsked, conjurableNames = {}, false, {};
-local function askConjurable ()
-	if ( not conjurableAsked ) then
-		conjurableAsked = true;
-		send("I");
+-- The server's lists, each asked for once: what may be conjured ("I"; "i<entry>:<level>:<name>" each, then "j<count>")
+-- and what may be imbued ("W"; "h<enchantment>:<level>:<name>" each, then "H<count>"), by bands of level
+local pickLists = {
+	item = { ask = "I", entries = {}, names = {}, none = "Choose an item", band = "Item level ", unnamed = "Item ",
+		bands = { { 1, 20 }, { 21, 40 }, { 41, 60 }, { 61, 70 }, { 71, 200 } } },
+	imbue = { ask = "W", entries = {}, names = {}, none = "Choose an imbue", band = "Level ", unnamed = "Enchantment ",
+		bands = { { 1, 20 }, { 21, 40 }, { 41, 60 }, { 61, 70 }, { 71, 200 } } },
+};
+local function askPickList (list)
+	if ( not list.asked ) then
+		list.asked = true;
+		send(list.ask);
 	end
 end
 
@@ -1575,13 +1598,14 @@ for i = 1, ROWS do
 	end);
 	row.track = dropDown("OursForgeTrack" .. i, frame, 90, M + 172, y, itemsOf(R.TRACKS, R.TRACK_LABELS),
 		function (v) effectsShown()[i].track = v; end);
-	-- a conjure's item: the server's list by bands of level, each opening to the side
+	-- a conjure's item, an imbue's enchantment: the server's list by bands of level, each opening to the side
 	row.item = dropDown("OursForgeItem" .. i, frame, 110, M + 172, y, {}, function (v) effectsShown()[i].item = tonumber(v) or 0; end);
 	UIDropDownMenu_Initialize(row.item, function (self, level)
 		level = level or 1;
 		local effect = effectsShown()[i];
 		if ( not effect ) then return; end
-		local BANDS = { { 1, 20 }, { 21, 40 }, { 41, 60 }, { 61, 70 }, { 71, 200 } };
+		local list = pickLists[R.KIND[effect.kind].picks or "item"];
+		local BANDS, conjurable = list.bands, list.entries;
 		if ( level == 1 ) then
 			if ( #conjurable == 0 ) then
 				local info = UIDropDownMenu_CreateInfo();
@@ -1596,7 +1620,7 @@ for i = 1, ROWS do
 				for _, item in ipairs(conjurable) do if ( item.level >= band[1] and item.level <= band[2] ) then any = true; end end
 				if ( any ) then
 					local info = UIDropDownMenu_CreateInfo();
-					info.text = "Item level " .. band[1] .. (band[2] < 200 and ("-" .. band[2]) or "+");
+					info.text = list.band .. band[1] .. (band[2] < 200 and ("-" .. band[2]) or "+");
 					info.value = band[1];
 					info.hasArrow = true;
 					info.notCheckable = true;
@@ -1840,14 +1864,15 @@ local function setRow (row, effect)
 	row.every:SetText(number(effect.every or 0));
 
 	-- what is made at you has no "on": a creature, a form or an element in its place
-	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds or kind.place or kind.conjures));
+	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds or kind.place or kind.picks));
 	show(row.track, kind.finds);
 	show(row.place, kind.place);
-	show(row.item, kind.conjures);
-	if ( kind.conjures ) then
-		askConjurable();
+	show(row.item, kind.picks);
+	if ( kind.picks ) then
+		local list = pickLists[kind.picks];
+		askPickList(list);
 		local entry = tonumber(effect.item) or 0;
-		UIDropDownMenu_SetText(row.item, entry > 0 and (conjurableNames[entry] or ("Item " .. entry)) or "Choose an item");
+		UIDropDownMenu_SetText(row.item, entry > 0 and (list.names[entry] or (list.unnamed .. entry)) or list.none);
 	end
 	if ( kind.place ) then
 		local items = { { value = "home", label = "Home (hearthstone)" }, { value = "here", label = "Here (where you stand)" } };
@@ -2443,13 +2468,14 @@ frame:SetScript("OnEvent", function (self, event, prefix, message)
 		if ( tonumber(req) == creatureReq ) then
 			table.insert(creatureFound, { entry = entry, level = tonumber(level), type = tonumber(ctype), name = name });
 		end
-	elseif ( kind == "i" ) then
+	elseif ( kind == "i" or kind == "h" ) then
+		local list = pickLists[kind == "i" and "item" or "imbue"];
 		local entry, level, name = string.match(rest, "^(%d+):(%d+):(.*)$");
 		if ( entry ) then
-			table.insert(conjurable, { entry = tonumber(entry), level = tonumber(level), name = name });
-			conjurableNames[tonumber(entry)] = name;
+			table.insert(list.entries, { entry = tonumber(entry), level = tonumber(level), name = name });
+			list.names[tonumber(entry)] = name;
 		end
-	elseif ( kind == "j" ) then
+	elseif ( kind == "j" or kind == "H" ) then
 		showEffects();
 	elseif ( kind == "k" ) then
 		local req, count = string.match(rest, "^(%w+):(%d+)$");

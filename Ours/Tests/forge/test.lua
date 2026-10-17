@@ -11,6 +11,7 @@ for _, kind in ipairs(R.KINDS) do
 	recipe.effects = { R.NewEffect(kind.key) };
 	if ( kind.key == "resurrect" ) then recipe.target = "friend"; end
 	if ( kind.conjures ) then recipe.effects[1].item = 5350; end
+	if ( kind.picks == "imbue" ) then recipe.target = "self"; recipe.effects[1].item = 283; end
 	if ( kind.creature ) then recipe.effects[1].creature = 416; end
 	if ( kind.aura ) then
 		local link = { when = "expire", effects = { R.NewEffect("damage"), R.NewEffect("slow") } };
@@ -462,6 +463,39 @@ local again = false;
 for _, m in ipairs(Mock.sent) do if ( m.body == "I" ) then again = true; end end
 CHECK(not again, "and not asked for again");
 
+-- 11i. Resistances and imbues: a school's own kind, read wherever the school is written; an imbue from the server's list
+do
+	local back = R.FromText('(spell (name "Warding") (target friend) (range 30) (resist 30 frost (for 600)) (resist fire 20) '
+		.. '(resist 10))');
+	CHECK(back and back.effects[1].kind == "resist_frost" and back.effects[1].low == 30 and back.effects[2].kind == "resist_fire"
+		and back.effects[3].kind == "resist", "resistances by school read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(resist frost 30") and string.find(text, "%(resist fire 20") and string.find(text, "%(resist 10"),
+		"and written again: " .. text);
+end
+OursForgeFrame.newOne(false);
+Mock.sent = {};
+Mock.pick(OursForgeKind1, "imbue");
+local askedImbues = 0;
+for _, m in ipairs(Mock.sent) do if ( m.body == "W" ) then askedImbues = askedImbues + 1; end end
+CHECK(askedImbues <= 1 and OursForgeItem1.shown and not OursForgeOn1.shown and OursForgeItem1.menuText == "Choose an imbue",
+	"an imbue shows the server's list, asked for: " .. askedImbues .. ", " .. tostring(OursForgeItem1.menuText));
+Mock.receive("h283:30:Windfury 1");
+Mock.receive("h5:10:Flametongue 1");
+Mock.receive("H2");
+local bands = {};
+for _, info in ipairs(Mock.entries(OursForgeItem1, 1)) do if ( info.hasArrow ) then table.insert(bands, info.text); end end
+CHECK(bands[1] == "Level 1-20" and bands[2] == "Level 21-40" and #bands == 2, "by bands of level: " .. table.concat(bands, ", "));
+for _, info in ipairs(Mock.entries(OursForgeItem1, 2, 21)) do
+	if ( info.value == 283 ) then info.func(info); end
+end
+CHECK(OursForgeItem1.menuText == "Windfury 1", "picked from the menu: " .. tostring(OursForgeItem1.menuText));
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(imbue 283%)"), "the recipe says so: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+Mock.pick(OursForgeKind1, "conjure");
+CHECK(OursForgeItem1.menuText == "Choose an item", "and the conjure's list is its own: " .. tostring(OursForgeItem1.menuText));
+
 -- 11h. Polymorph and drains: a creature's shape on an enemy, health and mana drained with what comes back
 do
 	local back = R.FromText('(spell (name "Toad") (target enemy) (range 30) (cast 1.5) (polymorph 13321 (for 20)) '
@@ -654,7 +688,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Always on: speed,Always on: senses,Always on: travel,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: travel,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");
