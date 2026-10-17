@@ -127,6 +127,11 @@ R.KINDS = {
 	{ key = "flight_speed", label = "Flying speed", word = "flight-speed", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "swim_speed", label = "Swimming speed", word = "swim-speed", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "mount", label = "Mount", word = "mount", amount = "two", creature = true, lasting = true, lowLabel = "%", highLabel = "fly %" },
+	-- resurrection: of a dead friend (health and mana; "in combat" as Rebirth), a stored soul (back with so much,
+	-- at most so often), one's pet
+	{ key = "resurrect", label = "Resurrect a friend", word = "resurrect", amount = "two", inCombat = true, lowLabel = "health", highLabel = "mana" },
+	{ key = "soulstone", label = "Store a soul", word = "soulstone", amount = "one", aura = true, resEvery = true, lowLabel = "%" },
+	{ key = "revive_pet", label = "Revive your pet", word = "revive-pet", amount = "one", lowLabel = "%" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -203,6 +208,7 @@ R.KIND_GROUPS = {
 		"lose_threat", "aggro_range", "feign_death", "leave_combat", "damage_versus" } },
 	{ label = "Travel", keys = { "teleport", "blink", "leap_back", "water_walk", "water_breathing", "slow_fall", "hover", "fly",
 		"flight_speed", "swim_speed", "mount" } },
+	{ label = "Resurrection", keys = { "resurrect", "soulstone", "revive_pet" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
@@ -219,7 +225,7 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
 	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus" } },
-	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed" } },
+	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed", "soulstone" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -266,6 +272,9 @@ function R.NewEffect (key)
 	if ( kind.key == "leap_back" ) then effect.low, effect.high = 20, 7.5; end
 	if ( kind.key == "mount" ) then effect.low, effect.high = 60, 0; end
 	if ( kind.key == "flight_speed" or kind.key == "swim_speed" ) then effect.low = 50; end
+	if ( kind.key == "resurrect" ) then effect.low, effect.high, effect.inCombat = 500, 500, false; end
+	if ( kind.key == "soulstone" ) then effect.low, effect.resEvery = 30, 0; end
+	if ( kind.key == "revive_pet" ) then effect.low = 15; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -463,6 +472,12 @@ effectText = function (effect)
 	end
 	if ( kind.charges and (tonumber(effect.charges) or 0) > 0 ) then
 		table.insert(parts, "(charges " .. number(effect.charges) .. ")");
+	end
+	if ( kind.inCombat and effect.inCombat ) then
+		table.insert(parts, "(in-combat)");
+	end
+	if ( kind.resEvery and (tonumber(effect.resEvery) or 0) > 0 ) then
+		table.insert(parts, "(cooldown " .. number(effect.resEvery) .. ")");
 	end
 	-- a weapon strike by the weapon's own speed (Heroic Strike), not normalized to its kind
 	if ( kind.unnormalized and effect.unnormalized ) then
@@ -696,6 +711,8 @@ readEffect = function (node, dropped)
 			elseif ( key == "percent" ) then effect.percent = true;
 			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
 			elseif ( key == "charges" and kind.charges ) then effect.charges = numberOf(child[2]) or 0;
+			elseif ( key == "in-combat" and kind.inCombat ) then effect.inCombat = true;
+			elseif ( key == "cooldown" and kind.resEvery ) then effect.resEvery = numberOf(child[2]) or 0;
 			elseif ( key == "per-combo" ) then effect.perCombo = numberOf(child[2]) or 0;
 			elseif ( key == "per-combo-for" ) then effect.perComboFor = numberOf(child[2]) or 0;
 			elseif ( key == "outside-dungeons" ) then effect.outside = true;
@@ -1420,6 +1437,11 @@ for i = 1, ROWS do
 		local fresh = R.NewEffect(v);
 		fresh.on = old.on;
 		effects[i] = fresh;
+		-- a resurrection is cast on a dead friend: the spell is aimed so
+		if ( v == "resurrect" and not recipe.passive and recipe.target ~= "friend" ) then
+			recipe.target = "friend";
+			targetMenu:SetValue("friend");
+		end
 		showEffects();
 	end);
 	-- in groups: the groups first, each opening to the side with its kinds
@@ -1471,6 +1493,13 @@ for i = 1, ROWS do
 	end);
 	row.highLabel = label(frame, "", M + 80, y - 30, "GameFontHighlightSmall");
 	row.high = editBox("OursForgeHigh" .. i, frame, 34, M + 100, y - 26, function (t) effectsShown()[i].high = tonumber(t) or 0; end);
+	row.inCombat = CreateFrame("CheckButton", "OursForgeInCombat" .. i, frame, "UICheckButtonTemplate");
+	row.inCombat:SetWidth(22);
+	row.inCombat:SetHeight(22);
+	_G["OursForgeInCombat" .. i .. "Text"]:SetText("in combat");
+	row.inCombat:SetScript("OnClick", function (self) effectsShown()[i].inCombat = self:GetChecked() and true or false; changed(); end);
+	row.resEveryLabel = label(frame, "every s", M + 80, y - 30, "GameFontHighlightSmall");
+	row.resEvery = editBox("OursForgeResEvery" .. i, frame, 34, M + 100, y - 26, function (t) effectsShown()[i].resEvery = tonumber(t) or 0; end);
 	row.chargesLabel = label(frame, "next", M + 80, y - 30, "GameFontHighlightSmall");
 	row.charges = editBox("OursForgeCharges" .. i, frame, 22, M + 100, y - 26, function (t) effectsShown()[i].charges = tonumber(t) or 0; end);
 	row.perComboLabel = label(frame, "+/pt", M + 80, y - 30, "GameFontHighlightSmall");
@@ -1754,6 +1783,11 @@ local function setRow (row, effect)
 		UIDropDownMenu_SetText(row.tag, table.concat(names, ", "));
 	end
 	show(row.change, kind.part == "modify" or kind.changes);
+	show(row.inCombat, kind.inCombat);
+	row.inCombat:SetChecked(effect.inCombat);
+	show(row.resEvery, kind.resEvery);
+	show(row.resEveryLabel, kind.resEvery);
+	row.resEvery:SetText(number(tonumber(effect.resEvery) or 0));
 	show(row.charges, kind.charges and not always);
 	show(row.chargesLabel, kind.charges and not always);
 	row.charges:SetText(number(tonumber(effect.charges) or 0));
@@ -1770,7 +1804,7 @@ local function setRow (row, effect)
 	show(row.health, kind.health);
 	show(row.healthLabel, kind.health);
 	row.health:SetText(number(effect.health or 0));
-	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and (effect.on == "group" or effect.on == "party"));
+	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and not kind.resEvery and (effect.on == "group" or effect.on == "party"));
 	show(row.radius, reaches);
 	show(row.radiusLabel, reaches);
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));
@@ -1795,11 +1829,11 @@ local function setRow (row, effect)
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
 	local order = { row.mechanics, row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.perComboLabel, row.perCombo, row.ownSpeed,
-		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.chargesLabel, row.charges, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
+		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.chargesLabel, row.charges, row.resEveryLabel, row.resEvery, row.inCombat, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
 		row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,
 		[row.forLabel] = true, [row.alwaysLabel] = true, [row.everyLabel] = true, [row.radiusLabel] = true,
-		[row.perComboLabel] = true, [row.perComboForLabel] = true, [row.chargesLabel] = true };
+		[row.perComboLabel] = true, [row.perComboForLabel] = true, [row.chargesLabel] = true, [row.resEveryLabel] = true };
 	local menus = { [row.change] = true, [row.power] = true, [row.as] = true };
 	for _, widget in ipairs(order) do
 		if ( widget:IsShown() ) then
@@ -1807,9 +1841,9 @@ local function setRow (row, effect)
 			if ( menus[widget] ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x - 16, rowY[row] - 22);
 				x = x + widget.layoutWidth;
-			elseif ( widget == row.elites or widget == row.percent or widget == row.ownSpeed ) then
+			elseif ( widget == row.elites or widget == row.percent or widget == row.ownSpeed or widget == row.inCombat ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 24);
-				x = x + 22 + (widget == row.percent and 10 or widget == row.ownSpeed and 56 or 40);
+				x = x + 22 + (widget == row.percent and 10 or widget == row.ownSpeed and 56 or widget == row.inCombat and 56 or 40);
 			elseif ( words[widget] ) then
 				widget:SetPoint("TOPLEFT", frame, "TOPLEFT", x, rowY[row] - 30);
 				x = x + (widget:GetStringWidth() or 0) + 8;

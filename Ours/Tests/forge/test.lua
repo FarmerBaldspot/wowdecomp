@@ -9,6 +9,7 @@ for _, kind in ipairs(R.KINDS) do
 	local recipe = R.New();
 	recipe.name = "Kind " .. kind.key;
 	recipe.effects = { R.NewEffect(kind.key) };
+	if ( kind.key == "resurrect" ) then recipe.target = "friend"; end
 	if ( kind.creature ) then recipe.effects[1].creature = 416; end
 	if ( kind.aura ) then
 		local link = { when = "expire", effects = { R.NewEffect("damage"), R.NewEffect("slow") } };
@@ -412,6 +413,25 @@ do
 	local text = back and R.Text(back) or "";
 	CHECK(string.find(text, "%(teleport 571 5804%.1 624%.7 647%.8 1%.6%)") and string.find(text, "%(mount 18363 60 150%)")
 		and string.find(text, "%(leap%-back 20 7%.5%)"), "and written again: " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
+-- 11f. Resurrection: picking one aims the spell at a friend; in combat; a stored soul with a cooldown
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "resurrect");
+CHECK(OursForgeInCombat1.shown and OursForgeHigh1.shown, "a resurrection: health, mana and \"in combat\"");
+OursForgeInCombat1:SetChecked(true);
+OursForgeInCombat1.scripts.OnClick(OursForgeInCombat1);
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(target friend%)") and string.find(Mock.sent[1].body, "%(resurrect 500 500 %(in%-combat%)%)"),
+	"aimed at a friend, also in combat: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+do
+	local back = R.FromText('(passive (name "Undying") (soulstone 20 (cooldown 1800)))');
+	CHECK(back and back.effects[1].kind == "soulstone" and back.effects[1].low == 20 and back.effects[1].resEvery == 1800,
+		"a stored soul with its cooldown read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(soulstone 20 %(cooldown 1800%)%)"), "and written again: " .. text);
 	table.insert(FORGE_TEXTS, text);
 end
 
