@@ -1,4 +1,5 @@
 #include "WoW/Source/DB/DBClient/DBClient.h"
+#include "WoW/Source/DB/OursSpellDB.h"
 #include "Engine/Source/ConsoleBase/ConsoleVar.h"
 #include "Engine/Source/ConsoleBase/IConsole.h"
 #include "Engine/Source/Storm/H/storm.h"
@@ -1141,6 +1142,8 @@ void ClientDBInitialize() {
     }
 
     StaticDBLoadAll(&WowClientDB_Base::Load);
+    // Ours: the spell table made to reach the Spellforge realm's numbers, before anything sizes itself by it
+    OursSpellDB::Reserve();
     GameTablesInitialize();
     InitResistances();
     InitTerrainTypeFlags();

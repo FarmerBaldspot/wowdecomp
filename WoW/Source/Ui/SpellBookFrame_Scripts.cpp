@@ -1,4 +1,5 @@
 #include "SpellBookFrame.h"
+#include "WoW/Source/DB/OursSpellDB.h"
 #include "Engine/Source/lua-5.1/src/lua.h"
 #include <cstdint>
 #include "Engine/Source/FrameScript/FrameScript.h"
@@ -117,6 +118,10 @@ static int32_t Script_GetSpellTabInfo(lua_State* L) {
     if (!info->m_skillLine) {
         lua_pushstring(L, FrameScript_GetText("GENERAL_SPELLS", -1, GENDER_NOT_APPLICABLE));
         lua_pushstring(L, "Interface\\Icons\\Ability_Kick");
+    } else if (info->m_skillLine == OursSpellDB::SPELLBOOK_TAB) {
+        // Ours: the Spellforge realm's crafted spells
+        lua_pushstring(L, OursSpellDB::SPELLBOOK_TAB_NAME);
+        lua_pushstring(L, OursSpellDB::SPELLBOOK_TAB_ICON);
     } else {
         SkillLineRec* skill = g_skillLineDB.GetRecord(info->m_skillLine);
 

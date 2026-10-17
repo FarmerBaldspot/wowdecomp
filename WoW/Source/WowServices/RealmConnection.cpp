@@ -1,4 +1,5 @@
 #include "RealmConnection.h"
+#include "WoW/Source/DB/OursSpellDB.h"
 #include "Engine/Source/BlizzardCore/Source/Packages/Util/SHA1.h"
 #include "Engine/Source/Os/TimeManager.h"
 #include "Engine/Source/Storm/H/storm.h"
@@ -192,6 +193,8 @@ RealmConnection::RealmConnection(RealmResponse* realmResponse) : m_realmResponse
     this->SetMessageHandler(SMSG_LOGOUT_RESPONSE, RealmConnection::MessageHandler, this);
     this->SetMessageHandler(SMSG_DELETE_CHAR, RealmConnection::MessageHandler, this);
     this->SetMessageHandler(SMSG_CACHE_VERSION, RealmConnection::MessageHandler, this);
+    // Ours: the Spellforge realm's crafted spells, which come before the login's spells (see OursSpellDB.h)
+    this->SetMessageHandler(OursSpellDB::MESSAGE, OursSpellDB::OnCraftedSpells, nullptr);
 
     RealmConnection::s_allRealmConnectionsCrit.Enter();
     RealmConnection::REALMCONNECTIONNODE* node = RealmConnection::s_allRealmConnections.NewNode(2, 0, 0);

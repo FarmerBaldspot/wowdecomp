@@ -298,6 +298,14 @@ int32_t GetSkillTierCost(const SkillRaceClassInfoRec* info, uint32_t step) {
     return tier->m_cost[step];
 }
 
+// Ours, not the game's: no OFFSET. The rows of g_skillLineAbilityDB were put in a new place (OursSpellDB): what
+// points at the old ones (the spell -> row table, the runs of rows by skill line) is made anew when next asked.
+void SpellTableAbilitiesChanged() {
+    s_skillLineRecs.Clear();
+    s_skillLineLinkInfo.m_count = 0;
+    s_skillLineLinkInfoDirty = true;
+}
+
 // VERIFY: e9c3aee4 auto
 // OFFSET: 0x00810920
 void SpellTableDestroy() {

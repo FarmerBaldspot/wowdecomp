@@ -1,4 +1,5 @@
 #include "SpellBookFrame.h"
+#include "WoW/Source/DB/OursSpellDB.h"
 #include <cstdlib>
 #include <cstring>
 #include "Engine/Source/Base/ConvertUTF.h"
@@ -626,6 +627,11 @@ void CGSpellBook::AddKnownSpell(int32_t spellId, int32_t notify, int32_t replace
         }
     }
 
+    // Ours: the Spellforge realm's crafted spells have a tab of their own
+    if (OursSpellDB::IsCrafted(spellId)) {
+        skillLine = OursSpellDB::SPELLBOOK_TAB;
+    }
+
     int32_t tab = -1;
 
     for (uint32_t i = 0; i < s_numSkillInfos; i++) {
@@ -869,6 +875,11 @@ int __cdecl SortSkillInfoByName(const void* a, const void* b) {
 
     if (!skillB) {
         return 1;
+    }
+
+    // Ours: the Spellforge's tab after the others
+    if (skillA == OursSpellDB::SPELLBOOK_TAB || skillB == OursSpellDB::SPELLBOOK_TAB) {
+        return skillA == skillB ? 0 : skillA == OursSpellDB::SPELLBOOK_TAB ? 1 : -1;
     }
 
     SkillLineRec* recA = g_skillLineDB.GetRecord(skillA);
@@ -1166,6 +1177,11 @@ static uint32_t GetSpellSkillInfoIndex(int32_t spellId) {
                 skillLine = info->m_skillID;
             }
         }
+    }
+
+    // Ours: the Spellforge realm's crafted spells have a tab of their own
+    if (OursSpellDB::IsCrafted(spellId)) {
+        skillLine = OursSpellDB::SPELLBOOK_TAB;
     }
 
     uint32_t i = 0;
@@ -2282,6 +2298,11 @@ void CGSpellBook::DelKnownSpell(int32_t spellId, int32_t notify) {
                     skillLine = info->m_skillID;
                 }
             }
+        }
+
+        // Ours: the Spellforge realm's crafted spells have a tab of their own
+        if (OursSpellDB::IsCrafted(spellId)) {
+            skillLine = OursSpellDB::SPELLBOOK_TAB;
         }
 
         for (uint32_t i = 0; i < s_numSkillInfos; i++) {
