@@ -79,6 +79,18 @@ R.KINDS = {
 	{ key = "health", label = "Health", word = "health", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "damage-taken", label = "Damage taken", word = "damage-taken", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "resist", label = "Resist all magic", word = "resist", amount = "one", aura = true },
+	-- protections; mechanics: kinds of control are ticked (immune to, freed of, shortened)
+	{ key = "immune_all", label = "Immune to all damage", word = "immune", extra = "all", amount = "none", aura = true },
+	{ key = "immune_magic", label = "Immune to magic", word = "immune", extra = "magic", amount = "none", aura = true },
+	{ key = "immune_physical", label = "Immune to physical", word = "immune", extra = "physical", amount = "none", aura = true },
+	{ key = "immune", label = "Immune to control", word = "immune", amount = "none", aura = true, mechanics = true },
+	{ key = "break", label = "Break free of control", word = "break", amount = "none", mechanics = true },
+	{ key = "tenacity", label = "Shorter control", word = "tenacity", amount = "one", aura = true, mechanics = true, lowLabel = "%" },
+	{ key = "reflect", label = "Reflect spells", word = "reflect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "thorns", label = "Thorns", word = "thorns", amount = "one", aura = true },
+	{ key = "mana_shield", label = "Mana shield", word = "mana-shield", amount = "one", aura = true },
+	{ key = "share_damage", label = "Take its damage", word = "share-damage", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "pushback", label = "Less pushback", word = "pushback-resist", amount = "one", aura = true, lowLabel = "%" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -98,6 +110,13 @@ R.POWER_LABELS = { "Your own", "Mana", "Rage", "Energy" };
 R.CREATURE_TYPES = { "beast", "dragonkin", "demon", "elemental", "giant", "undead", "humanoid", "critter", "mechanical" };
 R.CREATURE_TYPE_LABELS = { "Beast", "Dragonkin", "Demon", "Elemental", "Giant", "Undead", "Humanoid", "Critter", "Mechanical" };
 R.ELEMENTS = { "fire", "earth", "water", "air" };
+-- The kinds of control (the game's mechanics) one may be immune to, freed of or have shortened
+R.MECHANICS = { "stun", "fear", "root", "snare", "silence", "polymorph", "disorient", "charm", "sleep", "horror", "knockout",
+	"sap", "disarm", "freeze", "banish", "shackle", "daze", "bleed", "grip" };
+R.MECHANIC_LABELS = { "Stun", "Fear", "Root", "Slowing", "Silence", "Polymorph", "Disorient", "Charm", "Sleep", "Horror",
+	"Incapacitate", "Sap", "Disarm", "Freeze", "Banish", "Shackle", "Daze", "Bleeding", "Grip" };
+R.MECHANIC = {};
+for i, m in ipairs(R.MECHANICS) do R.MECHANIC[m] = i; end
 -- A passive's parts that are not effects: a change to one's spells of a kind, an "on hit" that adds effects to
 -- them, and "when" something happens (part: what it is; trigger: has effects of its own, stepped into)
 R.PARTS = {
@@ -134,6 +153,8 @@ R.KIND_GROUPS = {
 	{ label = "Power", keys = { "energize_mana", "energize_rage", "energize_energy", "combo" } },
 	{ label = "Control", keys = { "slow", "root", "stun", "silence", "fear", "disorient", "disarm", "taunt", "interrupt", "knockback", "charge" } },
 	{ label = "Removing", keys = { "dispel_magic", "dispel_curse", "dispel_disease", "dispel_poison" } },
+	{ label = "Protection", keys = { "immune", "immune_all", "immune_magic", "immune_physical", "break", "tenacity", "reflect",
+		"thorns", "mana_shield", "share_damage", "pushback" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
@@ -147,6 +168,7 @@ R.PASSIVE_GROUPS = {
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Always on: combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health",
 		"damage-taken", "resist" } },
+	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -171,6 +193,11 @@ function R.NewEffect (key)
 	if ( kind.key == "combo" ) then effect.low, effect.high = 1, 1; end
 	if ( kind.key == "knockback" ) then effect.low, effect.high = 15, 5; end
 	if ( kind.key == "slow" ) then effect.low = 40; end
+	if ( kind.mechanics ) then effect.mechanics = { kind.key == "break" and "fear" or "stun" }; end
+	if ( kind.key == "tenacity" or kind.key == "share_damage" ) then effect.low = 20; end
+	if ( kind.key == "pushback" ) then effect.low = 35; end
+	if ( kind.key == "reflect" ) then effect.low = 100; end
+	if ( kind.key == "mana_shield" ) then effect.low = 150; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -315,6 +342,15 @@ effectText = function (effect)
 	local parts = { kind.word };
 	if ( kind.extra ) then
 		table.insert(parts, kind.extra);
+	end
+	if ( kind.mechanics ) then
+		local any = false;
+		for _, m in ipairs(R.MECHANICS) do
+			for _, had in ipairs(effect.mechanics or {}) do
+				if ( had == m ) then table.insert(parts, m); any = true; end
+			end
+		end
+		if ( not any ) then table.insert(parts, "stun"); end
 	end
 	local low, high = tonumber(effect.low) or 0, tonumber(effect.high) or 0;
 	if ( kind.amount == "range" ) then
@@ -581,6 +617,9 @@ readEffect = function (node, dropped)
 			table.insert(numbers, tonumber(child.word));
 		elseif ( kind.form and child.word ) then
 			effect.form = child.word;
+		elseif ( kind.mechanics and child.word and R.MECHANIC[child.word] ) then
+			if ( not effect.readMechanics ) then effect.mechanics = {}; effect.readMechanics = true; end
+			table.insert(effect.mechanics, child.word);
 		end
 	end
 	if ( kind.creature ) then
@@ -601,6 +640,7 @@ readEffect = function (node, dropped)
 		effect.low, effect.high = 0, 0;
 		if ( numbers[1] and (kind.aura or kind.lock) ) then effect.seconds = numbers[1]; end
 	end
+	effect.readMechanics = nil;
 	return effect;
 end
 
@@ -1132,6 +1172,36 @@ costMenu = dropDown("OursForgeCost", spellPart, 70, M + 262, -258, costItems(), 
 	recipe.power = (v ~= allowedPowers[1]) and v or nil;
 end);
 
+-- The kinds of control of the effect whose button was pressed (ticks; one at the least)
+local mechanicsEffect;
+local mechanicsMenu = CreateFrame("Frame", "OursForgeMechanicsMenu", frame, "UIDropDownMenuTemplate");
+UIDropDownMenu_Initialize(mechanicsMenu, function (self, level)
+	local effect = mechanicsEffect;
+	if ( not effect ) then return; end
+	for i, m in ipairs(R.MECHANICS) do
+		local info = UIDropDownMenu_CreateInfo();
+		info.text = R.MECHANIC_LABELS[i];
+		info.value = m;
+		local has = false;
+		for _, had in ipairs(effect.mechanics or {}) do if ( had == m ) then has = true; end end
+		info.checked = has;
+		info.isNotRadio = true;
+		info.keepShownOnClick = true;
+		info.func = function ()
+			local list = {};
+			local was = false;
+			for _, had in ipairs(effect.mechanics or {}) do
+				if ( had == m ) then was = true; else table.insert(list, had); end
+			end
+			if ( not was ) then table.insert(list, m); end
+			if ( #list > 0 ) then effect.mechanics = list; end
+			changed();
+			showEffects();
+		end;
+		UIDropDownMenu_AddButton(info, level);
+	end
+end, "MENU");
+
 -- The effects
 local EFFECTS_TOP = -312;
 local effectsTitle = label(frame, "Effects", M, -290, "GameFontNormal");
@@ -1298,6 +1368,11 @@ for i = 1, ROWS do
 		end
 		whenEffect = effect;
 		ToggleDropDownMenu(1, nil, whenMenu, self, 0, 0);
+	end);
+	-- the kinds of control an immunity, a breaking free or a shortening is of
+	row.mechanics = button("OursForgeMechanics" .. i, frame, "Stun", 80, M + 4, y - 26, function (self)
+		mechanicsEffect = effectsShown()[i];
+		ToggleDropDownMenu(1, nil, mechanicsMenu, self, 0, 0);
 	end);
 	-- in the place of "on" for what is made at you: the creature, the form, the totem's element
 	row.creature = button("OursForgeCreature" .. i, frame, "Choose creature...", 140, M + 156, y - 2, function ()
@@ -1492,7 +1567,8 @@ local function setRow (row, effect)
 	show(row.perComboFor, longer);
 	show(row.perComboForLabel, longer);
 	row.perComboFor:SetText(number(tonumber(effect.perComboFor) or 0));
-	show(row.alwaysLabel, (kind.lasting or (kind.aura and not kind.every and kind.key ~= "charm") or kind.part == "when") and not always);
+	show(row.alwaysLabel, (kind.lasting or (kind.aura and not kind.every and kind.key ~= "charm") or kind.part == "when") and not always
+		and not (kind.mechanics and (effect.on == "group" or effect.on == "party")));
 	row.alwaysLabel:SetText(kind.part == "when" and "s (0: any time)" or "(0: always)");
 	row.forLabel:SetText(kind.lock and "lock" or (kind.part == "when" and "at most every" or "for"));
 	row.seconds:SetText(number(effect.seconds or 0));
@@ -1540,13 +1616,19 @@ local function setRow (row, effect)
 	row.ownSpeed:SetChecked(effect.unnormalized);
 	show(row.power, kind.shape);
 	row.power:SetValue(effect.power or "keep");
+	show(row.mechanics, kind.mechanics);
+	if ( kind.mechanics ) then
+		local words = {};
+		for _, had in ipairs(effect.mechanics or {}) do table.insert(words, R.MECHANIC_LABELS[R.MECHANIC[had] or 1]); end
+		row.mechanics:SetText(#words > 0 and table.concat(words, ", ") or "Stun");
+	end
 	show(row.as, kind.shape);
 	row.as:SetValue(effect.as or "none");
 
 	-- What is shown, one after the other by how wide each is: a word, a box (whose frame reaches 5 to the left of
 	-- it), a menu (16), a tick with its word
 	local x = M + 4;
-	local order = { row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.perComboLabel, row.perCombo, row.ownSpeed,
+	local order = { row.mechanics, row.change, row.power, row.as, row.lowLabel, row.low, row.percent, row.highLabel, row.high, row.perComboLabel, row.perCombo, row.ownSpeed,
 		row.aboveLabel, row.above, row.healthLabel, row.health, row.forLabel, row.seconds, row.perComboForLabel, row.perComboFor, row.alwaysLabel,
 		row.everyLabel, row.every, row.radiusLabel, row.radius, row.elites };
 	local words = { [row.lowLabel] = true, [row.highLabel] = true, [row.aboveLabel] = true, [row.healthLabel] = true,

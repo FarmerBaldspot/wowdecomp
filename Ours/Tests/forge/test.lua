@@ -310,6 +310,31 @@ CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(only beast humanoid%)")
 Mock.pick(OursForgeOnlyMenu, "any");
 CHECK(OursForgeOnly.text == "Every kind", "every kind again");
 
+-- 11b. Protections: immune to kinds of control ticked in a menu, written and read back
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "immune");
+CHECK(OursForgeMechanics1.shown and OursForgeMechanics1.text == "Stun", "an immunity is of stuns at first: " .. tostring(OursForgeMechanics1.text));
+OursForgeMechanics1.scripts.OnClick(OursForgeMechanics1);
+Mock.pick(OursForgeMechanicsMenu, "fear");
+Mock.pick(OursForgeMechanicsMenu, "knockout");
+CHECK(OursForgeMechanics1.text == "Stun, Fear, Incapacitate", "three kinds ticked: " .. tostring(OursForgeMechanics1.text));
+Mock.pick(OursForgeMechanicsMenu, "stun");
+CHECK(OursForgeMechanics1.text == "Fear, Incapacitate", "one unticked: " .. tostring(OursForgeMechanics1.text));
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(immune fear knockout %(for 6%)%)"), "and the recipe says so: "
+	.. tostring(Mock.sent[1] and Mock.sent[1].body));
+do
+	local back = R.FromText('(spell (name "Freed") (target self) (immune sap stun (for 4)) (break fear root) (tenacity silence 30 (for 0)) (immune magic (for 12)))');
+	CHECK(back and back.effects[1].kind == "immune" and table.concat(back.effects[1].mechanics, ",") == "sap,stun", "an immunity's kinds read back");
+	CHECK(back and back.effects[2].kind == "break" and table.concat(back.effects[2].mechanics, ",") == "fear,root", "a breaking free read back");
+	CHECK(back and back.effects[3].kind == "tenacity" and back.effects[3].low == 30, "a shortening read back");
+	CHECK(back and back.effects[4].kind == "immune_magic", "an immunity to magic read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(immune stun sap %(for 4%)%)") and string.find(text, "%(break fear root%)"), "and written again: " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
 -- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
 Mock.pick(OursForgeKind1, "summon_pet");
 OursForgeCreature1.scripts.OnClick(OursForgeCreature1);
@@ -481,7 +506,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");
