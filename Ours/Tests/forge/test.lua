@@ -362,6 +362,31 @@ do
 	table.insert(FORGE_TEXTS, text);
 end
 
+-- 11d. Stealth and senses: what is tracked in the place of "on"; a stealth read back
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "track");
+CHECK(OursForgeTrack1.shown and not OursForgeOn1.shown, "tracking: what it finds in the place of \"on\"");
+Mock.pick(OursForgeTrack1, "herbs");
+Mock.sent = {};
+Mock.wait(1);
+CHECK(Mock.sent[1] and string.find(Mock.sent[1].body, "%(track herbs%)"), "the recipe says so: " .. tostring(Mock.sent[1] and Mock.sent[1].body));
+Mock.pick(OursForgeKind1, "damage_versus");
+local onlyTypes = true;
+for _, item in ipairs(OursForgeTrack1.items) do if ( item.value == "herbs" ) then onlyTypes = false; end end
+CHECK(OursForgeTrack1.shown and onlyTypes, "more damage to a type offers creature types only");
+do
+	local back = R.FromText('(spell (name "Shade") (target self) (cooldown 10) (stealth 5) (slow 30) (shape stealth) '
+		.. '(see-stealth 30) (damage-versus demon 4))');
+	CHECK(back and back.effects[1].kind == "stealth" and back.effects[3].kind == "shape_form" and back.effects[3].form == "stealth",
+		"a stealth with its own bar read back");
+	CHECK(back and back.effects[5].kind == "damage_versus" and back.effects[5].track == "demon" and back.effects[5].low == 4,
+		"more damage to demons read back");
+	local text = back and R.Text(back) or "";
+	CHECK(string.find(text, "%(stealth 5%)") and string.find(text, "%(shape stealth%)")
+		and string.find(text, "%(damage%-versus demon 4"), "and written again: " .. text);
+	table.insert(FORGE_TEXTS, text);
+end
+
 -- 12. A pet: the creature chooser asks the server, a creature is picked, the recipe names it
 Mock.pick(OursForgeKind1, "summon_pet");
 OursForgeCreature1.scripts.OnClick(OursForgeCreature1);
@@ -533,7 +558,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Always on: speed,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: protection,Always on: speed,Always on: senses,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");

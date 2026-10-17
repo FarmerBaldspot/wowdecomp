@@ -102,6 +102,19 @@ R.KINDS = {
 	{ key = "healing_taken", label = "Healing taken", word = "healing-taken", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "threat", label = "Threat", word = "threat", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "vulnerable", label = "More damage from you", word = "vulnerable", amount = "one", aura = true, tagged = true, lowLabel = "%" },
+	-- stealth and senses; finds: what is tracked, or the creature type, in the place of "on"
+	{ key = "stealth", label = "Stealth", word = "stealth", amount = "one", aura = true, lowLabel = "level" },
+	{ key = "invisible", label = "Invisibility", word = "invisible", amount = "one", aura = true, lowLabel = "level" },
+	{ key = "see_stealth", label = "See stealth", word = "see-stealth", amount = "one", aura = true, lowLabel = "by" },
+	{ key = "see_invisible", label = "See invisible", word = "see-invisible", amount = "one", aura = true, lowLabel = "by" },
+	{ key = "track", label = "Track", word = "track", amount = "none", aura = true, finds = "track" },
+	{ key = "track_stealthed", label = "Track the stealthed", word = "track-stealthed", amount = "none", aura = true },
+	{ key = "marked", label = "Mark (seen hiding)", word = "marked", amount = "none", aura = true },
+	{ key = "lose_threat", label = "Lose threat", word = "lose-threat", amount = "one", aura = true, lowLabel = "by" },
+	{ key = "aggro_range", label = "Aggro range", word = "aggro-range", amount = "one", aura = true, lowLabel = "yd" },
+	{ key = "feign_death", label = "Feign death", word = "feign-death", amount = "none", aura = true },
+	{ key = "leave_combat", label = "Leave combat", word = "leave-combat", amount = "none" },
+	{ key = "damage_versus", label = "More damage to a type", word = "damage-versus", amount = "one", aura = true, finds = "type", lowLabel = "%" },
 	-- pets, minds, summons: above: levels above you it may be; creature: a creature is chosen; lasting: lasts for good
 	-- without a length; needsFor: needs one; totem: has effects of its own
 	{ key = "tame", label = "Tame as a pet", word = "tame", amount = "none", above = true, elites = true },
@@ -114,13 +127,18 @@ R.KINDS = {
 	{ key = "shape_form", label = "Take a form", word = "shape", amount = "none", form = true, shape = true, lasting = true },
 	{ key = "shape_creature", label = "Take a creature's shape", word = "shape", amount = "none", creature = true, shape = true, lasting = true },
 };
-R.FORMS = { "cat", "bear", "tree", "moonkin", "travel", "aquatic", "ghost-wolf", "shadow", "metamorphosis" };
-R.FORM_LABELS = { "Cat", "Bear", "Tree of Life", "Moonkin", "Travel", "Aquatic", "Ghost Wolf", "Shadowform", "Metamorphosis" };
+R.FORMS = { "cat", "bear", "tree", "moonkin", "travel", "aquatic", "ghost-wolf", "shadow", "metamorphosis", "stealth" };
+R.FORM_LABELS = { "Cat", "Bear", "Tree of Life", "Moonkin", "Travel", "Aquatic", "Ghost Wolf", "Shadowform", "Metamorphosis",
+	"Stealth (a bar of its own)" };
 R.POWERS = { "keep", "mana", "rage", "energy" };
 R.POWER_LABELS = { "Your own", "Mana", "Rage", "Energy" };
 R.CREATURE_TYPES = { "beast", "dragonkin", "demon", "elemental", "giant", "undead", "humanoid", "critter", "mechanical" };
 R.CREATURE_TYPE_LABELS = { "Beast", "Dragonkin", "Demon", "Elemental", "Giant", "Undead", "Humanoid", "Critter", "Mechanical" };
 R.ELEMENTS = { "fire", "earth", "water", "air" };
+-- What (track ...) finds: a creature type, or herbs, minerals, treasure
+R.TRACKS = { "beast", "dragonkin", "demon", "elemental", "giant", "undead", "humanoid", "critter", "mechanical", "herbs", "minerals", "treasure" };
+R.TRACK_LABELS = { "Beasts", "Dragonkin", "Demons", "Elementals", "Giants", "Undead", "Humanoids", "Critters", "Mechanical", "Herbs",
+	"Minerals", "Treasure" };
 -- The kinds of control (the game's mechanics) one may be immune to, freed of or have shortened
 R.MECHANICS = { "stun", "fear", "root", "snare", "silence", "polymorph", "disorient", "charm", "sleep", "horror", "knockout",
 	"sap", "disarm", "freeze", "banish", "shackle", "daze", "bleed", "grip" };
@@ -168,6 +186,8 @@ R.KIND_GROUPS = {
 		"thorns", "mana_shield", "share_damage", "pushback" } },
 	{ label = "Changing spells", keys = { "modify_spells", "spell_haste", "attack_speed", "melee_speed", "power_cost", "healing_taken",
 		"threat", "vulnerable" } },
+	{ label = "Stealth and senses", keys = { "stealth", "invisible", "see_stealth", "see_invisible", "track", "track_stealthed", "marked",
+		"lose_threat", "aggro_range", "feign_death", "leave_combat", "damage_versus" } },
 	{ label = "Buffs", keys = { "watch", "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
 		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
 	{ label = "Combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health", "damage-taken",
@@ -183,6 +203,7 @@ R.PASSIVE_GROUPS = {
 		"damage-taken", "resist" } },
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
+	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -217,6 +238,13 @@ function R.NewEffect (key)
 	if ( kind.key == "spell_haste" or kind.key == "attack_speed" or kind.key == "melee_speed" ) then effect.low = 20; end
 	if ( kind.key == "power_cost" or kind.key == "healing_taken" ) then effect.low = -20; end
 	if ( kind.key == "threat" ) then effect.low = 50; end
+	if ( kind.finds == "track" ) then effect.track = "beast"; end
+	if ( kind.finds == "type" ) then effect.track = "undead"; effect.low = 5; end
+	if ( kind.key == "stealth" or kind.key == "invisible" ) then effect.low = 5; end
+	if ( kind.key == "see_stealth" ) then effect.low = 30; end
+	if ( kind.key == "see_invisible" ) then effect.low = 1000; end
+	if ( kind.key == "lose_threat" ) then effect.low = 1000; end
+	if ( kind.key == "aggro_range" ) then effect.low = -10; end
 	if ( kind.aura ) then effect.seconds = kind.every and 12 or 6; end
 	if ( kind.every ) then effect.every = 3; end
 	if ( kind.lock ) then effect.seconds = 4; end
@@ -226,6 +254,8 @@ function R.NewEffect (key)
 	if ( kind.key == "charm" ) then effect.seconds = 60; end
 	if ( kind.lasting ) then effect.seconds = 0; end
 	if ( kind.needsFor ) then effect.seconds = 30; end
+	-- (what hides and what tracks lasts until cancelled, as the game's)
+	if ( kind.finds == "track" or kind.key == "track_stealthed" or kind.key == "stealth" ) then effect.seconds = 0; end
 	if ( kind.key == "summon" ) then effect.low = 1; end
 	if ( kind.totem ) then effect.every = 2; effect.inner = { R.NewEffect("damage") }; end
 	if ( kind.part ) then
@@ -364,6 +394,9 @@ effectText = function (effect)
 	end
 	if ( kind.tagged ) then
 		table.insert(parts, namedSpells(effect) or effect.tag or "all");
+	end
+	if ( kind.finds ) then
+		table.insert(parts, effect.track or (kind.finds == "type" and "undead" or "beast"));
 	end
 	if ( kind.changes ) then
 		table.insert(parts, effect.change or "damage");
@@ -666,6 +699,8 @@ readEffect = function (node, dropped)
 			table.insert(numbers, tonumber(child.word));
 		elseif ( kind.form and child.word ) then
 			effect.form = child.word;
+		elseif ( kind.finds and child.word ) then
+			effect.track = child.word;
 		elseif ( kind.mechanics and child.word and R.MECHANIC[child.word] ) then
 			if ( not effect.readMechanics ) then effect.mechanics = {}; effect.readMechanics = true; end
 			table.insert(effect.mechanics, child.word);
@@ -1429,6 +1464,8 @@ for i = 1, ROWS do
 	row.creature = button("OursForgeCreature" .. i, frame, "Choose creature...", 140, M + 156, y - 2, function ()
 		openCreaturePicker(effectsShown()[i]);
 	end);
+	row.track = dropDown("OursForgeTrack" .. i, frame, 90, M + 172, y, itemsOf(R.TRACKS, R.TRACK_LABELS),
+		function (v) effectsShown()[i].track = v; end);
 	row.form = dropDown("OursForgeForm" .. i, frame, 100, M + 172, y, itemsOf(R.FORMS, R.FORM_LABELS),
 		function (v) effectsShown()[i].form = v; end);
 	row.element = dropDown("OursForgeElement" .. i, frame, 80, M + 172, y, itemsOf(R.ELEMENTS),
@@ -1628,7 +1665,17 @@ local function setRow (row, effect)
 	row.every:SetText(number(effect.every or 0));
 
 	-- what is made at you has no "on": a creature, a form or an element in its place
-	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged));
+	show(row.on, not (kind.creature or kind.form or kind.totem or kind.part or kind.tagged or kind.finds));
+	show(row.track, kind.finds);
+	if ( kind.finds ) then
+		-- (a creature type only, for more damage to it)
+		local values, labels = {}, {};
+		for j, v in ipairs(R.TRACKS) do
+			if ( kind.finds == "track" or j <= 9 ) then table.insert(values, v); table.insert(labels, R.TRACK_LABELS[j]); end
+		end
+		row.track.items = itemsOf(values, labels);
+		row.track:SetValue(effect.track or values[1]);
+	end
 	show(row.tag, kind.part or kind.tagged);
 	row.tag.items = kind.part == "when" and whenTagItems or tagItems;
 	row.tag:SetValue(effect.tag or "all");
@@ -1729,7 +1776,7 @@ local function placeRows (top)
 	for i, row in ipairs(effectRows) do
 		local y = top - (i - 1) * 52;
 		rowY[row] = y;
-		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
+		for _, menu in ipairs({ row.kind, row.on, row.form, row.element, row.tag, row.track }) do at(menu, (menu == row.kind and M or M + 172) - 16, y + 4); end
 		at(row.remove, M + 300, y - 2);
 		at(row.when, M + 290, y - 26);
 		at(row.creature, M + 156, y - 2);
