@@ -611,13 +611,26 @@ CHECK(string.find(OursForgeFrame.listTitle.text, "Spells 3/5") and string.find(O
 Mock.receive("o9:x");
 CHECK(string.find(OursForgeFrame.listTitle.text, "Spells 3/5"), "a garbled answer changes nothing");
 
--- a forged character has no talent button (the next one moves up into its place) and no talent window
+-- a forged character's Talents button is the Spellforge's, there from level 1 on; N opens the forge
 for _, name in ipairs({ "TalentMicroButton", "AchievementMicroButton", "SpellbookMicroButton" }) do Mock.newObject("Button", name); end
-AchievementMicroButton.SetPoint = function (self, point, to) self.anchor = to; end
+TalentMicroButton.SetButtonState = function (self, state) self.state = state; end
+TalentMicroButton.CreateTexture = function (self, name) return Mock.newObject("Texture", name); end
+TalentMicroButton.SetScript = function (self, what, f) self.scripts[what] = f; end
 SpellforgeIsForged = function () return false; end
-OursForgeFrame.hideTalents();
-CHECK(TalentMicroButton.shown, "a character of the old make keeps its talent button");
+OursForgeFrame.forgeButton();
+CHECK(not OursForgeFrame.forgeTurned(), "a character of the old make keeps its Talents button");
 SpellforgeIsForged = function () return true; end
-OursForgeFrame.hideTalents();
-CHECK(not TalentMicroButton.shown and AchievementMicroButton.anchor == SpellbookMicroButton, "a forged one has none, the next button in its place");
-CHECK(ToggleTalentFrame() == nil, "nor the talent window");
+OursForgeFrame:Hide();
+OursForgeFrame.forgeButton();
+CHECK(OursForgeFrame.forgeTurned() and TalentMicroButton.minLevel == 1 and TalentMicroButton.shown, "a forged one's is the forge's, from level 1");
+CHECK(TalentMicroButton.tooltipText == "Spellforge" and TalentMicroButton.state == "NORMAL", "named, not pressed: " .. tostring(TalentMicroButton.tooltipText));
+OursForgeMicroIcon.SetAlpha = function (self, a) self.alpha = a; end
+TalentMicroButton.scripts.OnClick(TalentMicroButton);
+CHECK(OursForgeFrame.shown, "a click opens the forge");
+OursForgeFrame.forgeButton();
+CHECK(TalentMicroButton.state == "PUSHED" and OursForgeMicroIcon.alpha == 0.5, "pressed while it is open");
+ToggleTalentFrame();
+CHECK(not OursForgeFrame.shown, "N closes it again");
+ToggleTalentFrame();
+CHECK(OursForgeFrame.shown, "and opens it");
+OursForgeFrame:Hide();

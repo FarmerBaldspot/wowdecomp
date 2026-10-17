@@ -2023,31 +2023,68 @@ SlashCmdList["OURSFORGE"] = function ()
 end;
 
 ------------------------------------------------------------------------------------------------------------------
--- A forged character has no talents (its passives are), so the talent button and window are not there for it. Its
--- class underneath is only its stats; bots and characters of the old make keep theirs.
+-- A forged character has no talents (its passives are), so the Talents button of the bar below is the Spellforge's
+-- for it, there from level 1 on, and N opens the forge. Its class underneath is only its stats; bots and characters
+-- of the old make keep their talents.
 
 local function forged ()
 	return SpellforgeIsForged and SpellforgeIsForged();
 end
 
-local function hideTalents ()
-	if ( not forged() or not TalentMicroButton ) then return; end
-	TalentMicroButton:Hide();
-	if ( AchievementMicroButton and SpellbookMicroButton ) then
-		-- the button after it moves up into its place (as the game's own anchors have it, 3 pixels in)
-		AchievementMicroButton:ClearAllPoints();
-		AchievementMicroButton:SetPoint("BOTTOMLEFT", SpellbookMicroButton, "BOTTOMRIGHT", -3, 0);
-	end
-	if ( PlayerTalentFrame and PlayerTalentFrame:IsShown() ) then HideUIPanel(PlayerTalentFrame); end
+local function toggleForge ()
+	if ( frame:IsShown() ) then frame:Hide(); else frame:Show(); end
 end
-frame.hideTalents = hideTalents;
 
-if ( UpdateMicroButtons ) then hooksecurefunc("UpdateMicroButtons", hideTalents); end
+local FORGE_TIP = "Spellforge";
+local FORGE_NEWBIE = "Craft your own spells and passives.";
+
+-- the button as the game's own Character button is made: its empty frame, and a picture where the portrait goes
+local forgeTurned, forgeIcon = false, nil;
+local function forgeButton ()
+	local b = TalentMicroButton;
+	if ( not forged() or not b ) then return; end
+	if ( not forgeTurned ) then
+		forgeTurned = true;
+		b:SetNormalTexture("Interface\\Buttons\\UI-MicroButtonCharacter-Up");
+		b:SetPushedTexture("Interface\\Buttons\\UI-MicroButtonCharacter-Down");
+		b:SetHighlightTexture("Interface\\Buttons\\UI-MicroButton-Hilight");
+		forgeIcon = b:CreateTexture("OursForgeMicroIcon", "OVERLAY");
+		forgeIcon:SetWidth(18);
+		forgeIcon:SetHeight(25);
+		forgeIcon:SetPoint("TOP", b, "TOP", 0, -28);
+		forgeIcon:SetTexture("Interface\\Icons\\Trade_BlackSmithing");
+		forgeIcon:SetTexCoord(0.14, 0.86, 0, 1);
+		b.minLevel = 1;          -- (the game's UpdateMicroButtons holds the level against it)
+		b.newbieText = FORGE_NEWBIE;
+		b:SetScript("OnClick", toggleForge);
+		b:SetScript("OnEvent", function (self, event)
+			if ( event == "UPDATE_BINDINGS" ) then
+				self.tooltipText = MicroButtonTooltipText(FORGE_TIP, "TOGGLETALENTS");
+			end
+		end);
+	end
+	b.tooltipText = MicroButtonTooltipText and MicroButtonTooltipText(FORGE_TIP, "TOGGLETALENTS") or FORGE_TIP;
+	b:Show();
+	b:Enable();
+	if ( frame:IsShown() ) then
+		b:SetButtonState("PUSHED", 1);
+		forgeIcon:SetAlpha(0.5);
+	else
+		b:SetButtonState("NORMAL");
+		forgeIcon:SetAlpha(1);
+	end
+end
+frame.forgeButton = forgeButton;
+frame.forgeTurned = function () return forgeTurned; end
+
+if ( UpdateMicroButtons ) then hooksecurefunc("UpdateMicroButtons", forgeButton); end
+frame:HookScript("OnShow", forgeButton);
+frame:HookScript("OnHide", forgeButton);
 local toggleTalents = ToggleTalentFrame;
 function ToggleTalentFrame (...)
-	if ( forged() ) then return; end
+	if ( forged() ) then return toggleForge(); end
 	if ( toggleTalents ) then return toggleTalents(...); end
 end
 local talentWatch = CreateFrame("Frame");
 talentWatch:RegisterEvent("PLAYER_ENTERING_WORLD");
-talentWatch:SetScript("OnEvent", hideTalents);
+talentWatch:SetScript("OnEvent", forgeButton);
