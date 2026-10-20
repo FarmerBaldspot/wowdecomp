@@ -236,9 +236,10 @@ R.TAG_LABELS = { "All your spells", "Damaging spells", "Healing spells", "Spells
 	"Buffs", "Debuffs", "Instant spells", "Channelled spells", "Melee abilities", "Missiles", "Shields", "Pet spells", "Summons",
 	"Shapes", "Physical spells", "Holy spells", "Fire spells", "Nature spells", "Frost spells", "Shadow spells", "Arcane spells" };
 -- What a change changes
-R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "range", "radius", "crit-damage", "pushback" };
+R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "range", "radius", "crit-damage", "pushback",
+	"amount", "spell-power", "threat", "dispel-resist", "chance" };
 R.CHANGE_LABELS = { "Damage and healing", "Cost", "Cast time", "Cooldown", "Critical chance", "Duration", "Range", "Radius",
-	"Critical damage", "Pushback" };
+	"Critical damage", "Pushback", "Amount (points)", "Share of spell power", "Threat", "Resist dispels", "Chance to go off" };
 
 R.KIND = {};
 for _, kind in ipairs(R.KINDS) do
@@ -467,6 +468,10 @@ local function partText (effect, kind)
 		table.insert(parts, named or effect.tag or "all");
 		table.insert(parts, effect.change or "damage");
 		table.insert(parts, number(effect.low));
+		-- an amount of one of the spells' effects (1 to 3), else of every one
+		if ( effect.change == "amount" and (tonumber(effect.modEffect) or 0) > 0 ) then
+			table.insert(parts, "(effect " .. number(effect.modEffect) .. ")");
+		end
 		return "(" .. table.concat(parts, " ") .. ")";
 	end
 	if ( kind.part == "onhit" ) then
@@ -552,6 +557,9 @@ effectText = function (effect)
 	-- a stat, armor or attack power by percent
 	if ( kind.percent and effect.percent ) then
 		table.insert(parts, "(percent)");
+	end
+	if ( kind.changes and effect.change == "amount" and (tonumber(effect.modEffect) or 0) > 0 ) then
+		table.insert(parts, "(effect " .. number(effect.modEffect) .. ")");
 	end
 	if ( kind.charges and (tonumber(effect.charges) or 0) > 0 ) then
 		table.insert(parts, "(charges " .. number(effect.charges) .. ")");
@@ -806,6 +814,7 @@ readEffect = function (node, dropped)
 			elseif ( key == "percent" ) then effect.percent = true;
 			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
 			elseif ( key == "charges" and kind.charges ) then effect.charges = numberOf(child[2]) or 0;
+			elseif ( key == "effect" and kind.changes ) then effect.modEffect = numberOf(child[2]);
 			elseif ( key == "in-combat" and kind.inCombat ) then effect.inCombat = true;
 			elseif ( kind.share and key == kind.share ) then effect.share = numberOf(child[2]) or 100;
 			elseif ( key == "cooldown" and kind.resEvery ) then effect.resEvery = numberOf(child[2]) or 0;
@@ -921,6 +930,7 @@ local function readPart (node, dropped)
 		effect.change = wordOf(node[3]) or "damage";
 		effect.low = numberOf(node[4]) or 5;
 		effect.high = effect.low;
+		if ( node[5] and node[5].list and wordOf(node[5][1]) == "effect" ) then effect.modEffect = numberOf(node[5][2]); end
 		return effect;
 	end
 	if ( kind.part == "onhit" ) then which(node[2], "all"); else effect.tag = "any"; end
@@ -1895,7 +1905,8 @@ local function setRow (row, effect)
 	show(row.lowLabel, amount ~= "none");
 	show(row.high, amount == "range" or amount == "two");
 	show(row.highLabel, amount == "range" or amount == "two");
-	row.lowLabel:SetText(kind.lowLabel or (amount == "count" and "how many" or (amount == "range" and "from" or "amount")));
+	row.lowLabel:SetText(((kind.part == "modify" or kind.changes) and effect.change == "amount") and "pts"
+		or (kind.lowLabel or (amount == "count" and "how many" or (amount == "range" and "from" or "amount"))));
 	row.highLabel:SetText(kind.highLabel or "to");
 	row.low:SetText(number(effect.low));
 	row.high:SetText(number(effect.high));

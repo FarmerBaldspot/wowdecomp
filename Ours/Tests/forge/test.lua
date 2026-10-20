@@ -899,6 +899,20 @@ table.insert(FORGE_TEXTS, R.Text(strike));
 bite.finisher = nil;
 CHECK(not string.find(R.Text(bite), "per%-combo"), "without (finisher) no growth is written");
 
+-- the changes of spells besides: an amount (of every effect, or one), the share of spell power, threat, resisting
+-- dispels, a proc's chance
+local empowered = R.FromText('(passive (name "Empowered") (modify fire spell-power 15) (modify all amount 20 (effect 2)) '
+	.. '(modify all threat -10) (modify all dispel-resist 20) (modify all chance 10))');
+CHECK(empowered and #empowered.effects == 5 and empowered.effects[2].change == "amount" and empowered.effects[2].modEffect == 2,
+	"a passive's new changes are read");
+local empoweredText = R.Text(empowered);
+CHECK(string.find(empoweredText, "%(modify all amount 20 %(effect 2%)%)") and string.find(empoweredText, "%(modify fire spell%-power 15%)")
+	and string.find(empoweredText, "%(modify all chance 10%)"), "and written again: " .. empoweredText);
+table.insert(FORGE_TEXTS, empoweredText);
+local surge = R.FromText('(spell (name "Surge") (target self) (modify all amount 50 (effect 1) (for 10)))');
+CHECK(surge and surge.effects[1].modEffect == 1 and string.find(R.Text(surge), "%(effect 1%)"), "a spell's change of an amount: " .. R.Text(surge));
+table.insert(FORGE_TEXTS, R.Text(surge));
+
 -- a channel's pulse: its damage as hits of their own every so often (Arcane Missiles), not as ticks
 local missiles = R.FromText('(spell (name "Missiles") (school arcane) (target enemy) (channel 5) (pulse 1) (missile 20) (damage 1800))');
 CHECK(missiles and missiles.pulse == 1, "a channel's pulse is read");
