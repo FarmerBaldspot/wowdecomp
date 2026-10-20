@@ -313,7 +313,7 @@ R.KIND_GROUPS = {
 -- A passive's own: what is always on, and its parts
 R.PASSIVE_GROUPS = {
 	{ label = "Always on", keys = { "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
-		"armor", "speed", "attack-power", "spell-power", "damage-done" } },
+		"armor", "speed", "attack-power", "damage-done" } },
 	{ label = "Always on: combat", keys = { "crit", "haste", "hit", "spell-hit", "dodge", "parry", "block", "regen", "health",
 		"damage-taken" } },
 	{ label = "Always on: resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow",
@@ -321,10 +321,10 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
 	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus", "stealth_level" } },
-	{ label = "Always on: from stats", keys = { "spell_damage_from_strength", "spell_damage_from_agility", "spell_damage_from_stamina", "spell_damage_from_intellect", "spell_damage_from_spirit", "healing_from_strength", "healing_from_agility", "healing_from_stamina", "healing_from_intellect", "healing_from_spirit", "healing_power", "expertise" } },
+	{ label = "Always on: from stats", keys = { "spell_damage_from_strength", "spell_damage_from_agility", "spell_damage_from_stamina", "spell_damage_from_intellect", "spell_damage_from_spirit", "healing_from_strength", "healing_from_agility", "healing_from_stamina", "healing_from_intellect", "healing_from_spirit", "expertise" } },
 	{ label = "Always on: combat, more", keys = { "attacker_hit", "attacker_hit_ranged", "attacker_hit_spell", "attacker_hit_all", "attacker_crit", "attacker_crit_ranged", "attacker_crit_spell", "attacker_crit_all", "armor_penetration", "offhand_damage", "crit_damage_bonus" } },
 	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed", "soulstone" } },
-	{ label = "Always on: more", keys = { "ranged_attack_power", "ranged_haste", "bonus_health", "healing_done", "power_regen_mana",
+	{ label = "Always on: more", keys = { "ranged_attack_power", "ranged_haste", "healing_done", "power_regen_mana",
 		"block_value", "deflect", "area_damage_taken", "regen_while_casting", "shorter_magic", "safe_fall", "untrackable" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
@@ -671,6 +671,10 @@ function R.Text (recipe)
 		local parts = { "passive", "(name " .. quote(recipe.name) .. ")", "(icon " .. number(recipe.icon) .. ")" };
 		R.Finisher = nil;
 		for _, effect in ipairs(recipe.effects) do
+			-- a stat, armor or attack power always on is by percent: flat points would buy far too much early on (the
+			-- user, 2026-10-20: "Percent only")
+			local kind = R.KIND[effect.kind];
+			if ( kind and kind.percent ) then effect.percent = true; end
 			R.NoLength = true;
 			table.insert(parts, effectText(effect));
 			R.NoLength = nil;
@@ -2040,7 +2044,7 @@ local function setRow (row, effect)
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));
 	show(row.elites, kind.elites);
 	row.elites:SetChecked(effect.elites);
-	show(row.percent, kind.percent);
+	show(row.percent, kind.percent and not (recipe.passive and #path == 0));
 	row.percent:SetChecked(effect.percent);
 	show(row.ownSpeed, kind.unnormalized);
 	row.ownSpeed:SetChecked(effect.unnormalized);

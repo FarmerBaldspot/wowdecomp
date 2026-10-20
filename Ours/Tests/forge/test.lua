@@ -686,7 +686,7 @@ do
 	CHECK(string.find(text, "%(on%-hit damage 10 %(slow 40 %(for 6%)%)%)"), "an on-hit with what it does, which has a length: " .. text);
 	CHECK(string.find(text, "%(when crit 30 %(cooldown 6%) %(spells fire%) %(dot 10 %(for 12%) %(every 3%)%)%)"), "a when: " .. text);
 	CHECK(string.find(text, "%(when struck 10 %(absorb 10 %(for 6%) %(on self%)%)%)"), "a when of anything: no spells named: " .. text);
-	CHECK(string.find(text, "%(damage%-taken 5%)") and string.find(text, "%(armor 10 %(on group%)%)"), "what is always on has no length: " .. text);
+	CHECK(string.find(text, "%(damage%-taken 5%)") and string.find(text, "%(armor 10 %(percent%) %(on group%)%)"), "what is always on has no length (and a stat, armor or attack power is by percent): " .. text);
 	local back, dropped = R.FromText(text);
 	CHECK(back and back.passive and R.Text(back) == text, "read back the same\n    " .. text .. "\n    " .. (back and R.Text(back) or ""));
 	CHECK(back and #dropped == 0, "nothing left out");
@@ -813,9 +813,7 @@ CHECK(OursForgeKind1.y == -308, "a spell's effects stand where they did: " .. to
 -- 22. A stat, armor or attack power by percent (a passive's and a spell's alike)
 OursForgeFrame.newOne(true);
 Mock.pick(OursForgeKind1, "stat_stamina");
-CHECK(OursForgePercent1.shown and not OursForgeFor1.shown, "a stat has its percent tick");
-OursForgePercent1:SetChecked(true);
-OursForgePercent1.scripts.OnClick(OursForgePercent1);
+CHECK(not OursForgePercent1.shown and not OursForgeFor1.shown, "a passive's stat has no percent tick: it is always by percent");
 Mock.type(OursForgeLow1, "10");
 Mock.sent = {};
 Mock.wait(1);
@@ -835,6 +833,9 @@ do
 	CHECK(string.find(t, "%(attack%-power 5 %(percent%) %(for 6%)%)"), "a spell's buff by percent: " .. t);
 	table.insert(FORGE_TEXTS, t);
 end
+OursForgeFrame.newOne(false);
+Mock.pick(OursForgeKind1, "stat_stamina");
+CHECK(OursForgePercent1.shown, "a spell's stat has its percent tick");
 Mock.pick(OursForgeKind1, "spell-power");
 CHECK(not OursForgePercent1.shown, "spell power has none");
 
@@ -901,14 +902,14 @@ CHECK(not string.find(R.Text(bite), "per%-combo"), "without (finisher) no growth
 
 -- more always on: a stat's share as spell damage and healing, enemies' chances against you, and the rest
 local guidance = R.FromText('(passive (name "Guidance") (spell-damage-from spirit 5) (healing-from spirit 5) (attacker-hit spell -2) '
-	.. '(attacker-crit -3) (expertise 4) (armor-penetration 5) (offhand-damage 10) (stealth-level 3) (crit-damage-bonus 4) (healing-power 20))');
-CHECK(guidance and #guidance.effects == 10 and guidance.effects[1].kind == "spell_damage_from_spirit" and guidance.effects[3].kind == "attacker_hit_spell"
+	.. '(attacker-crit -3) (expertise 4) (armor-penetration 5) (offhand-damage 10) (stealth-level 3) (crit-damage-bonus 4))');
+CHECK(guidance and #guidance.effects == 9 and guidance.effects[1].kind == "spell_damage_from_spirit" and guidance.effects[3].kind == "attacker_hit_spell"
 	and guidance.effects[4].kind == "attacker_crit", "the new always-on kinds are read");
 local guidanceText = R.Text(guidance);
 CHECK(string.find(guidanceText, "%(spell%-damage%-from spirit 5%)") and string.find(guidanceText, "%(attacker%-hit spell %-2%)")
 	and string.find(guidanceText, "%(attacker%-crit %-3%)") and string.find(guidanceText, "%(stealth%-level 3%)"), "and written again: " .. guidanceText);
 table.insert(FORGE_TEXTS, guidanceText);
-local evade = R.FromText('(spell (name "Evade") (target self) (dodge 50 (for 15)) (attacker-hit ranged -25 (for 15)))');
+local evade = R.FromText('(spell (name "Evade") (target self) (dodge 50 (for 15)) (attacker-hit ranged -25 (for 15)) (healing-power 20 (for 15)))');
 CHECK(evade and evade.effects[2].kind == "attacker_hit_ranged", "a spell with one is read: " .. R.Text(evade));
 table.insert(FORGE_TEXTS, R.Text(evade));
 
