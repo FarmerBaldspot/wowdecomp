@@ -658,6 +658,8 @@ function R.Text (recipe)
 		table.insert(parts, "(cast " .. number(recipe.castSeconds) .. ")");
 	elseif ( recipe.cast == "channel" ) then
 		table.insert(parts, "(channel " .. number(recipe.castSeconds) .. ")");
+		-- its damage and healing as hits of their own every so often (Arcane Missiles, Blizzard), not as ticks
+		if ( (tonumber(recipe.pulse) or 0) > 0 ) then table.insert(parts, "(pulse " .. number(recipe.pulse) .. ")"); end
 	end
 	if ( (tonumber(recipe.cooldown) or 0) > 0 ) then
 		table.insert(parts, "(cooldown " .. number(recipe.cooldown) .. ")");
@@ -981,6 +983,7 @@ function R.FromText (text)
 		elseif ( key == "cast" ) then
 			if ( wordOf(value) == "instant" ) then recipe.cast = "instant"; else recipe.cast = "cast"; recipe.castSeconds = numberOf(value) or 0; end
 		elseif ( key == "channel" ) then recipe.cast = "channel"; recipe.castSeconds = numberOf(value) or 1;
+		elseif ( key == "pulse" ) then recipe.pulse = numberOf(value) or 1;
 		elseif ( key == "cooldown" ) then recipe.cooldown = numberOf(value) or 0;
 		elseif ( key == "missile" or (key == "speed" and #node == 2 and numberOf(value)) ) then recipe.speed = numberOf(value) or 0;
 		elseif ( key == "area" ) then
@@ -1281,7 +1284,7 @@ end
 -- Middle: the spell, then its effects
 
 local showLook;
-local nameBox, iconButton, schoolMenu, targetMenu, castMenu, castBox, rangeBox, meleeCheck, cooldownBox;
+local nameBox, iconButton, schoolMenu, targetMenu, castMenu, castBox, rangeBox, meleeCheck, cooldownBox, pulseBox;
 local shapeMenu, sizeBox, sizeLabel, aroundMenu, speedBox;
 local effectRows = {};
 local rowY = {};          -- where each row of effects stands (kept apart: a row holds only its widgets)
@@ -1358,6 +1361,10 @@ meleeCheck:SetHeight(24);
 meleeCheck:SetPoint("TOPLEFT", M + 84, -186);
 OursForgeMeleeText:SetText("Melee");
 meleeCheck:SetScript("OnClick", function (self) recipe.melee = self:GetChecked() and true or false; showEffects(); changed(); end);
+-- a channel's: its damage and healing as hits every so many seconds (Arcane Missiles, Blizzard); empty or 0: as ticks
+pulseBox = editBox("OursForgePulse", spellPart, 30, M + 90, -190, function (t) recipe.pulse = tonumber(t); end);
+pulseBox.label = label(spellPart, "Hits every", M + 84, -176);
+pulseBox.unit = label(spellPart, "s", M + 124, -194, "GameFontHighlightSmall");
 label(spellPart, "Missile speed", M + 170, -176);
 speedBox = editBox("OursForgeSpeed", spellPart, 36, M + 176, -190, function (t) recipe.speed = tonumber(t) or 0; end);
 label(spellPart, "yd/s (0: at once)", M + 218, -194, "GameFontHighlightSmall");
@@ -2092,6 +2099,11 @@ showEffects = function ()
 	-- what the spell's own fields mean depends on others
 	if ( recipe.target == "self" ) then rangeBox:Hide(); meleeCheck:Hide(); rangeLabel:Hide(); yardsLabel:Hide(); else rangeBox:Show(); meleeCheck:Show(); rangeLabel:Show(); yardsLabel:Show(); end
 	if ( recipe.cast == "instant" ) then castBox:Hide(); castLabel:Hide(); else castBox:Show(); castLabel:Show(); end
+	if ( recipe.cast == "channel" ) then
+		meleeCheck:Hide(); pulseBox:Show(); pulseBox.label:Show(); pulseBox.unit:Show();
+	else
+		pulseBox:Hide(); pulseBox.label:Hide(); pulseBox.unit:Hide();
+	end
 	if ( recipe.shape == "single" ) then sizeBox:Hide(); sizeLabel:Hide(); else sizeBox:Show(); sizeLabel:Show(); end
 	sizeLabel:SetText(recipe.shape == "chain" and "Jumps" or (recipe.shape == "cone" and "Yards" or "Radius"));
 	sizeBox:SetText(number(recipe.shape == "chain" and recipe.jumps or recipe.radius));
@@ -2108,6 +2120,7 @@ local function showRecipe ()
 	cooldownBox:SetText(number(recipe.cooldown));
 	rangeBox:SetText(number(recipe.range));
 	meleeCheck:SetChecked(recipe.melee);
+	pulseBox:SetText((tonumber(recipe.pulse) or 0) > 0 and number(recipe.pulse) or "");
 	speedBox:SetText(number(recipe.speed));
 	shapeMenu:SetValue(recipe.shape);
 	aroundMenu:SetValue(recipe.around);

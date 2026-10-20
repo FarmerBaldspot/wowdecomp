@@ -289,6 +289,12 @@ CHECK(Mock.sent[1] and Mock.sent[1].body == "X1000016", "and forgets the one pic
 Mock.receive("x1000016");
 CHECK(OursForgeForge.text == "Forge" and not OursForgeSaveNew.shown, "once forgotten, what is in the form is a new spell");
 
+-- a channel shows "Hits every" in the place of Melee
+Mock.receive("r1000016:1:1:(spell (name \"Missiles\") (school arcane) (target enemy) (channel 5) (pulse 2) (damage 1800))");
+CHECK(OursForgePulse.shown and OursForgePulse.text == "2" and not OursForgeMelee.shown, "a channel's pulse is shown in its box");
+Mock.receive("r1000016:1:1:(spell (name \"Bolt\") (school arcane) (target enemy) (cast 2) (damage 100))");
+CHECK(not OursForgePulse.shown and OursForgeMelee.shown, "and a cast has Melee there");
+
 -- 9. Forge
 Mock.sent = {};
 OursForgeForge.scripts.OnClick(OursForgeForge);
@@ -892,3 +898,11 @@ CHECK(strike and strike.effects[2].kind == "combo" and strike.effects[2].low == 
 table.insert(FORGE_TEXTS, R.Text(strike));
 bite.finisher = nil;
 CHECK(not string.find(R.Text(bite), "per%-combo"), "without (finisher) no growth is written");
+
+-- a channel's pulse: its damage as hits of their own every so often (Arcane Missiles), not as ticks
+local missiles = R.FromText('(spell (name "Missiles") (school arcane) (target enemy) (channel 5) (pulse 1) (missile 20) (damage 1800))');
+CHECK(missiles and missiles.pulse == 1, "a channel's pulse is read");
+CHECK(string.find(R.Text(missiles), "%(channel 5%) %(pulse 1%)"), "and written again: " .. R.Text(missiles));
+table.insert(FORGE_TEXTS, R.Text(missiles));
+missiles.cast = "cast";
+CHECK(not string.find(R.Text(missiles), "pulse"), "a cast that is not a channel has no pulse");
