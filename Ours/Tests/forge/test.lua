@@ -713,7 +713,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: travel,Always on: more,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: from stats,Always on: combat, more,Always on: travel,Always on: more,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");
@@ -898,6 +898,19 @@ CHECK(strike and strike.effects[2].kind == "combo" and strike.effects[2].low == 
 table.insert(FORGE_TEXTS, R.Text(strike));
 bite.finisher = nil;
 CHECK(not string.find(R.Text(bite), "per%-combo"), "without (finisher) no growth is written");
+
+-- more always on: a stat's share as spell damage and healing, enemies' chances against you, and the rest
+local guidance = R.FromText('(passive (name "Guidance") (spell-damage-from spirit 5) (healing-from spirit 5) (attacker-hit spell -2) '
+	.. '(attacker-crit -3) (expertise 4) (armor-penetration 5) (offhand-damage 10) (stealth-level 3) (crit-damage-bonus 4) (healing-power 20))');
+CHECK(guidance and #guidance.effects == 10 and guidance.effects[1].kind == "spell_damage_from_spirit" and guidance.effects[3].kind == "attacker_hit_spell"
+	and guidance.effects[4].kind == "attacker_crit", "the new always-on kinds are read");
+local guidanceText = R.Text(guidance);
+CHECK(string.find(guidanceText, "%(spell%-damage%-from spirit 5%)") and string.find(guidanceText, "%(attacker%-hit spell %-2%)")
+	and string.find(guidanceText, "%(attacker%-crit %-3%)") and string.find(guidanceText, "%(stealth%-level 3%)"), "and written again: " .. guidanceText);
+table.insert(FORGE_TEXTS, guidanceText);
+local evade = R.FromText('(spell (name "Evade") (target self) (dodge 50 (for 15)) (attacker-hit ranged -25 (for 15)))');
+CHECK(evade and evade.effects[2].kind == "attacker_hit_ranged", "a spell with one is read: " .. R.Text(evade));
+table.insert(FORGE_TEXTS, R.Text(evade));
 
 -- the changes of spells besides: an amount (of every effect, or one), the share of spell power, threat, resisting
 -- dispels, a proc's chance

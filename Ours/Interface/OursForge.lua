@@ -68,6 +68,33 @@ R.KINDS = {
 	{ key = "attack-power", label = "Attack power", word = "attack-power", amount = "one", aura = true, percent = true, lowLabel = "by" },
 	{ key = "spell-power", label = "Spell power", word = "spell-power", amount = "one", aura = true },
 	{ key = "damage-done", label = "Damage done", word = "damage-done", amount = "one", aura = true, lowLabel = "%" },
+	-- (2026-10-20) spell damage and healing by a percent of a stat, healing power, expertise, enemies' chances against the
+	-- bearer, armor penetration, off-hand damage, stealth's level, critical damage
+	{ key = "spell_damage_from_strength", label = "Spell damage from Strength", word = "spell-damage-from", extra = "strength", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "spell_damage_from_agility", label = "Spell damage from Agility", word = "spell-damage-from", extra = "agility", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "spell_damage_from_stamina", label = "Spell damage from Stamina", word = "spell-damage-from", extra = "stamina", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "spell_damage_from_intellect", label = "Spell damage from Intellect", word = "spell-damage-from", extra = "intellect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "spell_damage_from_spirit", label = "Spell damage from Spirit", word = "spell-damage-from", extra = "spirit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_from_strength", label = "Healing from Strength", word = "healing-from", extra = "strength", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_from_agility", label = "Healing from Agility", word = "healing-from", extra = "agility", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_from_stamina", label = "Healing from Stamina", word = "healing-from", extra = "stamina", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_from_intellect", label = "Healing from Intellect", word = "healing-from", extra = "intellect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_from_spirit", label = "Healing from Spirit", word = "healing-from", extra = "spirit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_power", label = "Healing power", word = "healing-power", amount = "one", aura = true },
+	{ key = "expertise", label = "Expertise", word = "expertise", amount = "one", aura = true },
+	-- enemies' chance to hit or crit the bearer (below 0: less); of melee unless it says ranged, spell or all
+	{ key = "attacker_hit_ranged", label = "Enemies' ranged hit", word = "attacker-hit", extra = "ranged", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_hit_spell", label = "Enemies' spell hit", word = "attacker-hit", extra = "spell", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_hit_all", label = "Enemies' hit (all)", word = "attacker-hit", extra = "all", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_hit", label = "Enemies' melee hit", word = "attacker-hit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_crit_ranged", label = "Enemies' ranged crit", word = "attacker-crit", extra = "ranged", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_crit_spell", label = "Enemies' spell crit", word = "attacker-crit", extra = "spell", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_crit_all", label = "Enemies' crit (all)", word = "attacker-crit", extra = "all", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attacker_crit", label = "Enemies' melee crit", word = "attacker-crit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "armor_penetration", label = "Armor penetration", word = "armor-penetration", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "offhand_damage", label = "Off-hand damage", word = "offhand-damage", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "stealth_level", label = "Stealth level", word = "stealth-level", amount = "one", aura = true },
+	{ key = "crit_damage_bonus", label = "Critical damage", word = "crit-damage-bonus", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "crit", label = "Critical strike chance", word = "crit", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "haste", label = "Haste", word = "haste", amount = "one", aura = true, lowLabel = "%" },
 	{ key = "hit", label = "Hit chance (attacks)", word = "hit", amount = "one", aura = true, lowLabel = "%" },
@@ -275,8 +302,10 @@ R.KIND_GROUPS = {
 	{ label = "Defence", keys = { "block_value", "deflect", "area_damage_taken", "damage_taken_points", "healing_taken_points",
 		"bleed_damage_taken", "dispel_resist", "shorter_magic", "shorter_curse", "shorter_disease", "shorter_poison", "no_attacks" } },
 	{ label = "Ranged", keys = { "ranged_attack_power", "ranged_haste", "ranged_power_against" } },
+	{ label = "Power from stats", keys = { "spell_damage_from_strength", "spell_damage_from_agility", "spell_damage_from_stamina", "spell_damage_from_intellect", "spell_damage_from_spirit", "healing_from_strength", "healing_from_agility", "healing_from_stamina", "healing_from_intellect", "healing_from_spirit", "healing_power", "expertise" } },
+	{ label = "Combat: more", keys = { "attacker_hit", "attacker_hit_ranged", "attacker_hit_spell", "attacker_hit_all", "attacker_crit", "attacker_crit_ranged", "attacker_crit_spell", "attacker_crit_all", "armor_penetration", "offhand_damage", "crit_damage_bonus" } },
 	{ label = "Other", keys = { "keep_combo_points", "threat_points", "distract", "steal_buff", "pick_pocket", "size", "untrackable",
-		"see_buffs", "beast_lore", "safe_fall" } },
+		"see_buffs", "beast_lore", "safe_fall", "stealth_level" } },
 	{ label = "Resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow", "resist_arcane" } },
 	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem" } },
 	{ label = "Shapes", keys = { "shape_form", "shape_creature", "transform" } },
@@ -291,7 +320,9 @@ R.PASSIVE_GROUPS = {
 		"resist_arcane" } },
 	{ label = "Always on: protection", keys = { "immune", "tenacity", "reflect", "thorns", "pushback" } },
 	{ label = "Always on: speed", keys = { "spell_haste", "attack_speed", "melee_speed", "power_cost", "threat" } },
-	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus" } },
+	{ label = "Always on: senses", keys = { "see_stealth", "see_invisible", "track", "track_stealthed", "damage_versus", "stealth_level" } },
+	{ label = "Always on: from stats", keys = { "spell_damage_from_strength", "spell_damage_from_agility", "spell_damage_from_stamina", "spell_damage_from_intellect", "spell_damage_from_spirit", "healing_from_strength", "healing_from_agility", "healing_from_stamina", "healing_from_intellect", "healing_from_spirit", "healing_power", "expertise" } },
+	{ label = "Always on: combat, more", keys = { "attacker_hit", "attacker_hit_ranged", "attacker_hit_spell", "attacker_hit_all", "attacker_crit", "attacker_crit_ranged", "attacker_crit_spell", "attacker_crit_all", "armor_penetration", "offhand_damage", "crit_damage_bonus" } },
 	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed", "soulstone" } },
 	{ label = "Always on: more", keys = { "ranged_attack_power", "ranged_haste", "bonus_health", "healing_done", "power_regen_mana",
 		"block_value", "deflect", "area_damage_taken", "regen_while_casting", "shorter_magic", "safe_fall", "untrackable" } },
@@ -329,6 +360,8 @@ function R.NewEffect (key)
 	if ( kind.key == "spell_haste" or kind.key == "attack_speed" or kind.key == "melee_speed" ) then effect.low = 20; end
 	if ( kind.key == "power_cost" or kind.key == "healing_taken" ) then effect.low = -20; end
 	if ( kind.key == "threat" ) then effect.low = 50; end
+	if ( kind.word == "attacker-hit" or kind.word == "attacker-crit" ) then effect.low = -5; end
+	if ( kind.word == "spell-damage-from" or kind.word == "healing-from" ) then effect.low = 25; end
 	if ( kind.finds == "track" ) then effect.track = "beast"; end
 	if ( kind.finds == "type" ) then effect.track = "undead"; effect.low = 5; end
 	if ( kind.key == "stealth" or kind.key == "invisible" ) then effect.low = 5; end
