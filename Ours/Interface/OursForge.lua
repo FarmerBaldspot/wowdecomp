@@ -225,6 +225,50 @@ R.KINDS = {
 	{ key = "spell_magnet", label = "Draw a spell onto it", word = "spell-magnet", amount = "none", aura = true, totemOnly = true },
 	-- one's totems taken back, a share of their mana given back (Totemic Recall)
 	{ key = "recall_totems", label = "Recall your totems", word = "recall-totems", amount = "one", lowLabel = "% back" },
+	-- (2026-10-23) more single words, for talents: a stat as mana, armor, attack power; spell damage and healing from
+	-- attack power; attack power from armor; critical blocks, attacks dodged less, rage from damage, critical heals, the
+	-- most of a power, mounted speed; what one's spells of a kind may do (cast without what they need first, crit over
+	-- time, not be dodged, parried or blocked, keep the swing timer, use no ammunition); extra attacks at once
+	{ key = "regen_from_strength", label = "Mana every 5 s from Strength", word = "regen-from", extra = "strength", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "regen_from_agility", label = "Mana every 5 s from Agility", word = "regen-from", extra = "agility", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "regen_from_stamina", label = "Mana every 5 s from Stamina", word = "regen-from", extra = "stamina", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "regen_from_intellect", label = "Mana every 5 s from Intellect", word = "regen-from", extra = "intellect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "regen_from_spirit", label = "Mana every 5 s from Spirit", word = "regen-from", extra = "spirit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "armor_from_strength", label = "Armor from Strength", word = "armor-from", extra = "strength", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "armor_from_agility", label = "Armor from Agility", word = "armor-from", extra = "agility", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "armor_from_stamina", label = "Armor from Stamina", word = "armor-from", extra = "stamina", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "armor_from_intellect", label = "Armor from Intellect", word = "armor-from", extra = "intellect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "armor_from_spirit", label = "Armor from Spirit", word = "armor-from", extra = "spirit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_power_from_strength", label = "Attack power from Strength", word = "attack-power-from", extra = "strength", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_power_from_agility", label = "Attack power from Agility", word = "attack-power-from", extra = "agility", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_power_from_stamina", label = "Attack power from Stamina", word = "attack-power-from", extra = "stamina", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_power_from_intellect", label = "Attack power from Intellect", word = "attack-power-from", extra = "intellect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_power_from_spirit", label = "Attack power from Spirit", word = "attack-power-from", extra = "spirit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "ranged_attack_power_from_strength", label = "Ranged attack power from Strength", word = "ranged-attack-power-from", extra = "strength", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "ranged_attack_power_from_agility", label = "Ranged attack power from Agility", word = "ranged-attack-power-from", extra = "agility", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "ranged_attack_power_from_stamina", label = "Ranged attack power from Stamina", word = "ranged-attack-power-from", extra = "stamina", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "ranged_attack_power_from_intellect", label = "Ranged attack power from Intellect", word = "ranged-attack-power-from", extra = "intellect", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "ranged_attack_power_from_spirit", label = "Ranged attack power from Spirit", word = "ranged-attack-power-from", extra = "spirit", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "spell_power_from_ap", label = "Spell damage from attack power", word = "spell-power-from-ap", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "healing_from_ap", label = "Healing from attack power", word = "healing-from-ap", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "attack_power_from_armor", label = "Attack power from armor", word = "attack-power-from-armor", amount = "one", aura = true, lowLabel = "armor" },
+	{ key = "critical_block", label = "Critical blocks", word = "critical-block", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "dodged", label = "Your attacks dodged", word = "dodged", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "rage_from_damage", label = "Rage from damage dealt", word = "rage-from-damage", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "crit_healing", label = "Bigger critical heals", word = "crit-healing", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "max_mana", label = "Maximum mana", word = "max-power", extra = "mana", amount = "one", aura = true, percent = true, percentFree = true, lowLabel = "by" },
+	{ key = "max_rage", label = "Maximum rage", word = "max-power", extra = "rage", amount = "one", aura = true, percent = true, percentFree = true, lowLabel = "by" },
+	{ key = "max_energy", label = "Maximum energy", word = "max-power", extra = "energy", amount = "one", aura = true, percent = true, percentFree = true, lowLabel = "by" },
+	{ key = "mounted_speed", label = "Mounted speed", word = "mounted-speed", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "mounted_flight_speed", label = "Flying mount speed", word = "mounted-flight-speed", amount = "one", aura = true, lowLabel = "%" },
+	{ key = "no_requirements", label = "Cast without what they need", word = "no-requirements", amount = "none", aura = true, tagged = true, inCombat = true },
+	{ key = "periodic_crit", label = "Damage over time crits", word = "periodic-crit", amount = "none", aura = true, tagged = true },
+	{ key = "not_avoided_dodge", label = "Cannot be dodged", word = "not-avoided", extra = "dodge", amount = "none", aura = true, tagged = true },
+	{ key = "not_avoided_parry", label = "Cannot be parried", word = "not-avoided", extra = "parry", amount = "none", aura = true, tagged = true },
+	{ key = "not_avoided_block", label = "Cannot be blocked", word = "not-avoided", extra = "block", amount = "none", aura = true, tagged = true },
+	{ key = "keep_swing", label = "Keep the swing timer", word = "keep-swing", amount = "none", aura = true, tagged = true },
+	{ key = "no_ammo", label = "Use no ammunition", word = "no-ammo", amount = "none", aura = true, tagged = true },
+	{ key = "extra_attack", label = "Extra attacks", word = "extra-attack", amount = "count", lowLabel = "how many" },
 	-- shapes: on yourself; what you spend in it and what you count as
 	{ key = "shape_form", label = "Take a form", word = "shape", amount = "none", form = true, shape = true, lasting = true },
 	{ key = "shape_creature", label = "Take a creature's shape", word = "shape", amount = "none", creature = true, shape = true, lasting = true },
@@ -244,9 +288,9 @@ R.TRACK_LABELS = { "Beasts", "Dragonkin", "Demons", "Elementals", "Giants", "Und
 	"Minerals", "Treasure" };
 -- The kinds of control (the game's mechanics) one may be immune to, freed of or have shortened
 R.MECHANICS = { "stun", "fear", "root", "snare", "silence", "polymorph", "disorient", "charm", "sleep", "horror", "knockout",
-	"sap", "disarm", "freeze", "banish", "shackle", "daze", "bleed", "grip" };
+	"sap", "disarm", "freeze", "banish", "shackle", "daze", "bleed", "grip", "interrupt" };
 R.MECHANIC_LABELS = { "Stun", "Fear", "Root", "Slowing", "Silence", "Polymorph", "Disorient", "Charm", "Sleep", "Horror",
-	"Incapacitate", "Sap", "Disarm", "Freeze", "Banish", "Shackle", "Daze", "Bleeding", "Grip" };
+	"Incapacitate", "Sap", "Disarm", "Freeze", "Banish", "Shackle", "Daze", "Bleeding", "Grip", "Interrupt" };
 R.MECHANIC = {};
 for i, m in ipairs(R.MECHANICS) do R.MECHANIC[m] = i; end
 -- A passive's parts that are not effects: a change to one's spells of a kind, an "on hit" that adds effects to
@@ -271,7 +315,7 @@ R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "ra
 	"amount", "spell-power", "threat", "dispel-resist", "chance", "hit", "gcd", "charges", "targets", "spell-power-percent" };
 R.CHANGE_LABELS = { "Damage and healing", "Cost", "Cast time", "Cooldown", "Critical chance", "Duration", "Range", "Radius",
 	"Critical damage", "Pushback", "Amount (points)", "Share of spell power", "Threat", "Resist dispels", "Chance to go off",
-	"Chance to hit", "Global cooldown", "Charges", "Chain targets", "Share of spell power (%)" };
+	"Chance to hit", "Global cooldown", "Charges", "Chain targets", "Share of spell power (%)", "Multiplier", "Cost when missing" };
 
 R.KIND = {};
 for _, kind in ipairs(R.KINDS) do
@@ -314,6 +358,10 @@ R.KIND_GROUPS = {
 	{ label = "Resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow", "resist_arcane" } },
 	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem", "recall_totems" } },
 	{ label = "Shapes", keys = { "shape_form", "shape_creature", "transform" } },
+	{ label = "From stats: mana and armor", keys = { "regen_from_strength", "regen_from_agility", "regen_from_stamina", "regen_from_intellect", "regen_from_spirit", "armor_from_strength", "armor_from_agility", "armor_from_stamina", "armor_from_intellect", "armor_from_spirit" } },
+	{ label = "From stats: attack power", keys = { "attack_power_from_strength", "attack_power_from_agility", "attack_power_from_stamina", "attack_power_from_intellect", "attack_power_from_spirit", "ranged_attack_power_from_strength", "ranged_attack_power_from_agility", "ranged_attack_power_from_stamina", "ranged_attack_power_from_intellect", "ranged_attack_power_from_spirit" } },
+	{ label = "Combat: talents", keys = { "spell_power_from_ap", "healing_from_ap", "attack_power_from_armor", "critical_block", "dodged", "rage_from_damage", "crit_healing", "max_mana", "max_rage", "max_energy", "mounted_speed", "mounted_flight_speed" } },
+	{ label = "Your spells, freed", keys = { "no_requirements", "periodic_crit", "not_avoided_dodge", "not_avoided_parry", "not_avoided_block", "keep_swing", "no_ammo", "extra_attack" } },
 };
 -- What a totem may do around itself (no pets, minds, shapes, totems or charges; helpers it summons once, when it is placed)
 R.TOTEM_GROUPS = {};
@@ -343,6 +391,10 @@ R.PASSIVE_GROUPS = {
 	{ label = "Always on: travel", keys = { "water_breathing", "water_walk", "slow_fall", "swim_speed", "flight_speed", "soulstone" } },
 	{ label = "Always on: more", keys = { "ranged_attack_power", "ranged_haste", "healing_done", "power_regen_mana",
 		"block_value", "deflect", "area_damage_taken", "regen_while_casting", "shorter_magic", "safe_fall", "untrackable" } },
+	{ label = "Always on: mana, armor", keys = { "regen_from_strength", "regen_from_agility", "regen_from_stamina", "regen_from_intellect", "regen_from_spirit", "armor_from_strength", "armor_from_agility", "armor_from_stamina", "armor_from_intellect", "armor_from_spirit" } },
+	{ label = "Always on: attack power", keys = { "attack_power_from_strength", "attack_power_from_agility", "attack_power_from_stamina", "attack_power_from_intellect", "attack_power_from_spirit", "ranged_attack_power_from_strength", "ranged_attack_power_from_agility", "ranged_attack_power_from_stamina", "ranged_attack_power_from_intellect", "ranged_attack_power_from_spirit" } },
+	{ label = "Always on: talents", keys = { "spell_power_from_ap", "healing_from_ap", "attack_power_from_armor", "critical_block", "dodged", "rage_from_damage", "crit_healing", "max_mana", "max_rage", "max_energy", "mounted_speed", "mounted_flight_speed" } },
+	{ label = "Always on: your spells", keys = { "no_requirements", "periodic_crit", "not_avoided_dodge", "not_avoided_parry", "not_avoided_block", "keep_swing", "no_ammo" } },
 	{ label = "Your spells", keys = { "modify", "onhit" } },
 	{ label = "When...", keys = { "when_crit", "when_hit", "when_heal", "when_struck", "when_kill" } },
 };
@@ -693,7 +745,7 @@ function R.Text (recipe)
 			-- a stat, armor or attack power always on is by percent: flat points would buy far too much early on (the
 			-- user, 2026-10-20: "Percent only")
 			local kind = R.KIND[effect.kind];
-			if ( kind and kind.percent ) then effect.percent = true; end
+			if ( kind and kind.percent and not kind.percentFree ) then effect.percent = true; end
 			R.NoLength = true;
 			table.insert(parts, effectText(effect));
 			R.NoLength = nil;
@@ -838,17 +890,18 @@ readEffect = function (node, dropped)
 	local from = 2;
 	-- a kind of spell, or (spells ...) of the character's, first; then what of them a change changes
 	if ( kind.tagged ) then
-		local first = node[2];
+		local at = kind.extra and 3 or 2;
+		local first = node[at];
 		if ( first and first.list and wordOf(first[1]) == "spells" ) then
 			effect.spells = {};
 			for j = 2, #first do
 				local n = numberOf(first[j]);
 				if ( n ) then table.insert(effect.spells, n); else effect.tag = wordOf(first[j]) or effect.tag; end
 			end
-			from = 3;
+			from = at + 1;
 		elseif ( first and not first.list and not tonumber(first.word) ) then
 			effect.tag = wordOf(first) or "all";
-			from = 3;
+			from = at + 1;
 		end
 	end
 	if ( kind.changes ) then
@@ -2068,7 +2121,7 @@ local function setRow (row, effect)
 	row.radius:SetText(number(kind.totem and (effect.radius or 10) or (effect.reach or (effect.on == "party" and 100 or 40))));
 	show(row.elites, kind.elites);
 	row.elites:SetChecked(effect.elites);
-	show(row.percent, kind.percent and not (recipe.passive and #path == 0));
+	show(row.percent, kind.percent and (kind.percentFree or not (recipe.passive and #path == 0)));
 	row.percent:SetChecked(effect.percent);
 	show(row.ownSpeed, kind.unnormalized);
 	row.ownSpeed:SetChecked(effect.unnormalized);

@@ -717,7 +717,7 @@ CHECK(OursForgeKind1.shown and OursForgeTag1.shown and OursForgeChange1.shown an
 do
 	local labels = {};
 	for _, info in ipairs(Mock.entries(OursForgeKind1)) do if ( info.hasArrow ) then table.insert(labels, info.text); end end
-	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: from stats,Always on: combat, more,Always on: travel,Always on: more,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
+	CHECK(table.concat(labels, ",") == "Always on,Always on: combat,Always on: resistances,Always on: protection,Always on: speed,Always on: senses,Always on: from stats,Always on: combat, more,Always on: travel,Always on: more,Always on: mana, armor,Always on: attack power,Always on: talents,Always on: your spells,Your spells,When...", "a passive's kinds: " .. table.concat(labels, ","));
 end
 Mock.pick(OursForgeChange1, "cost");
 Mock.pick(OursForgeTag1, "fire");
@@ -962,6 +962,24 @@ local focusText = R.Text(focus);
 CHECK(string.find(focusText, "%(modify all gcd %-10%)") and string.find(focusText, "%(modify area targets 1%)")
 	and string.find(focusText, "spell%-power%-percent 20%)"), "and written again: " .. focusText);
 table.insert(FORGE_TEXTS, focusText);
+
+-- (2026-10-23) more single words, for talents: a stat as mana, a kind of spell after a word of its own, the most of a
+-- power by percent in a passive, an interrupt as a kind of control, extra attacks in a "when"
+local habits = R.FromText('(passive (name "Habits") (regen-from intellect 10) (not-avoided dodge melee) '
+	.. '(no-requirements melee (in-combat)) (max-power mana 3 (percent)) (max-power energy 10) (tenacity interrupt 30))');
+CHECK(habits and #habits.effects == 6 and habits.effects[1].kind == "regen_from_intellect" and habits.effects[2].kind == "not_avoided_dodge"
+	and habits.effects[2].tag == "melee" and habits.effects[3].inCombat and habits.effects[4].percent and not habits.effects[5].percent,
+	"the talents' words are read");
+local habitsText = R.Text(habits);
+CHECK(string.find(habitsText, "%(regen%-from intellect 10%)") and string.find(habitsText, "%(not%-avoided dodge melee%)")
+	and string.find(habitsText, "%(no%-requirements melee %(in%-combat%)%)") and string.find(habitsText, "%(max%-power mana 3 %(percent%)%)")
+	and string.find(habitsText, "%(max%-power energy 10%)") and string.find(habitsText, "%(tenacity interrupt 30%)"),
+	"and written again: " .. habitsText);
+table.insert(FORGE_TEXTS, habitsText);
+local rhythm = R.FromText('(passive (name "Rhythm") (when hit 5 (cooldown 6) (extra-attack 1)))');
+CHECK(rhythm and rhythm.effects[1].inner and rhythm.effects[1].inner[1] and rhythm.effects[1].inner[1].kind == "extra_attack",
+	"an extra attack in a when");
+table.insert(FORGE_TEXTS, R.Text(rhythm));
 
 -- a channel's pulse: its damage as hits of their own every so often (Arcane Missiles), not as ticks
 local missiles = R.FromText('(spell (name "Missiles") (school arcane) (target enemy) (channel 5) (pulse 1) (missile 20) (damage 1800))');
