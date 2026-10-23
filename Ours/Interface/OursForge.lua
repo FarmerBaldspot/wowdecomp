@@ -220,7 +220,11 @@ R.KINDS = {
 	{ key = "charm", label = "Control it for a while", word = "charm", amount = "none", aura = true, above = true },
 	{ key = "summon_pet", label = "Summon a pet", word = "summon-pet", amount = "none", creature = true, lasting = true },
 	{ key = "summon", label = "Summon helpers", word = "summon", amount = "count", creature = true, needsFor = true, lowLabel = "how many" },
-	{ key = "totem", label = "Place a totem", word = "totem", amount = "none", totem = true, needsFor = true, every = true },
+	{ key = "totem", label = "Place a totem", word = "totem", amount = "none", totem = true, needsFor = true, every = true, totemHealth = true },
+	-- (2026-10-23) inside a totem only: the next harmful spell cast at an ally around it strikes the totem (Grounding Totem)
+	{ key = "spell_magnet", label = "Draw a spell onto it", word = "spell-magnet", amount = "none", aura = true, totemOnly = true },
+	-- one's totems taken back, a share of their mana given back (Totemic Recall)
+	{ key = "recall_totems", label = "Recall your totems", word = "recall-totems", amount = "one", lowLabel = "% back" },
 	-- shapes: on yourself; what you spend in it and what you count as
 	{ key = "shape_form", label = "Take a form", word = "shape", amount = "none", form = true, shape = true, lasting = true },
 	{ key = "shape_creature", label = "Take a creature's shape", word = "shape", amount = "none", creature = true, shape = true, lasting = true },
@@ -264,9 +268,10 @@ R.TAG_LABELS = { "All your spells", "Damaging spells", "Healing spells", "Spells
 	"Shapes", "Physical spells", "Holy spells", "Fire spells", "Nature spells", "Frost spells", "Shadow spells", "Arcane spells" };
 -- What a change changes
 R.CHANGES = { "damage", "cost", "cast-time", "cooldown", "crit", "duration", "range", "radius", "crit-damage", "pushback",
-	"amount", "spell-power", "threat", "dispel-resist", "chance" };
+	"amount", "spell-power", "threat", "dispel-resist", "chance", "hit", "gcd", "charges", "targets", "spell-power-percent" };
 R.CHANGE_LABELS = { "Damage and healing", "Cost", "Cast time", "Cooldown", "Critical chance", "Duration", "Range", "Radius",
-	"Critical damage", "Pushback", "Amount (points)", "Share of spell power", "Threat", "Resist dispels", "Chance to go off" };
+	"Critical damage", "Pushback", "Amount (points)", "Share of spell power", "Threat", "Resist dispels", "Chance to go off",
+	"Chance to hit", "Global cooldown", "Charges", "Chain targets", "Share of spell power (%)" };
 
 R.KIND = {};
 for _, kind in ipairs(R.KINDS) do
@@ -307,9 +312,21 @@ R.KIND_GROUPS = {
 	{ label = "Other", keys = { "keep_combo_points", "threat_points", "distract", "steal_buff", "pick_pocket", "size", "untrackable",
 		"see_buffs", "beast_lore", "safe_fall", "stealth_level" } },
 	{ label = "Resistances", keys = { "resist", "resist_fire", "resist_frost", "resist_nature", "resist_shadow", "resist_arcane" } },
-	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem" } },
+	{ label = "Pets and summons", keys = { "tame", "thrall", "charm", "summon_pet", "summon", "totem", "recall_totems" } },
 	{ label = "Shapes", keys = { "shape_form", "shape_creature", "transform" } },
 };
+-- What a totem may do around itself (no pets, minds, shapes, totems or charges; helpers it summons once, when it is placed)
+R.TOTEM_GROUPS = {};
+for _, group in ipairs(R.KIND_GROUPS) do
+	if ( group.label ~= "Pets and summons" and group.label ~= "Shapes" ) then
+		local keys = {};
+		for _, key in ipairs(group.keys) do
+			if ( key ~= "charge" ) then table.insert(keys, key); end
+		end
+		table.insert(R.TOTEM_GROUPS, { label = group.label, keys = keys });
+	end
+end
+table.insert(R.TOTEM_GROUPS, { label = "The totem", keys = { "spell_magnet", "summon" } });
 -- A passive's own: what is always on, and its parts
 R.PASSIVE_GROUPS = {
 	{ label = "Always on", keys = { "stat_strength", "stat_agility", "stat_stamina", "stat_intellect", "stat_spirit", "stat_all",
@@ -471,6 +488,8 @@ local function specialText (effect, kind)
 		table.insert(parts, "(for " .. number(seconds) .. ")");
 		table.insert(parts, "(every " .. number(effect.every) .. ")");
 		table.insert(parts, "(radius " .. number(effect.radius) .. ")");
+		-- its own health, in points (else the forge's 5 and 2 more a level)
+		if ( (tonumber(effect.health) or 0) > 0 ) then table.insert(parts, "(totem-health " .. number(effect.health) .. ")"); end
 		for _, inner in ipairs(effect.inner or {}) do
 			table.insert(parts, effectText(inner));
 		end
@@ -847,6 +866,7 @@ readEffect = function (node, dropped)
 				if ( inner ) then table.insert(effect.inner, inner); end
 			elseif ( key == "above" ) then effect.above = numberOf(child[2]) or 0;
 			elseif ( key == "health" ) then effect.health = numberOf(child[2]) or 0;
+			elseif ( key == "totem-health" and kind.totem ) then effect.health = numberOf(child[2]) or 0;
 			elseif ( key == "elites" ) then effect.elites = true;
 			elseif ( key == "percent" ) then effect.percent = true;
 			elseif ( key == "unnormalized" ) then effect.unnormalized = true;
@@ -1619,6 +1639,7 @@ for i = 1, ROWS do
 		local last = path[#path];
 		local groups = R.KIND_GROUPS;
 		if ( last and R.KIND[last.effect.kind].trigger ) then groups = R.TRIGGER_GROUPS;
+		elseif ( last and R.KIND[last.effect.kind].totem ) then groups = R.TOTEM_GROUPS;
 		elseif ( not last and recipe.passive ) then groups = R.PASSIVE_GROUPS; end
 		for _, group in ipairs(groups) do
 			if ( level == 1 ) then
@@ -1942,7 +1963,9 @@ local function setRow (row, effect)
 	show(row.lowLabel, amount ~= "none");
 	show(row.high, amount == "range" or amount == "two");
 	show(row.highLabel, amount == "range" or amount == "two");
-	row.lowLabel:SetText(((kind.part == "modify" or kind.changes) and effect.change == "amount") and "pts"
+	local changing = kind.part == "modify" or kind.changes;
+	row.lowLabel:SetText((changing and effect.change == "amount") and "pts"
+		or ((changing and (effect.change == "charges" or effect.change == "targets")) and "more")
 		or (kind.lowLabel or (amount == "count" and "how many" or (amount == "range" and "from" or "amount"))));
 	row.highLabel:SetText(kind.highLabel or "to");
 	row.low:SetText(number(effect.low));
@@ -2033,8 +2056,9 @@ local function setRow (row, effect)
 	show(row.above, kind.above);
 	show(row.aboveLabel, kind.above);
 	row.above:SetText(number(effect.above or 0));
-	show(row.health, kind.health);
-	show(row.healthLabel, kind.health);
+	show(row.health, kind.health or kind.totemHealth);
+	show(row.healthLabel, kind.health or kind.totemHealth);
+	row.healthLabel:SetText(kind.totemHealth and "health" or "worn to %");
 	row.health:SetText(number(effect.health or 0));
 	local inArea = recipe.shape == "area" and effectsShown() == recipe.effects;
 	local reaches = kind.totem or (kind.aura and not kind.shape and not kind.tagged and not kind.resEvery and not kind.share

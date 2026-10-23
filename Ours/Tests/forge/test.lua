@@ -4,8 +4,9 @@
 local R = OursForgeRecipe;
 FORGE_TEXTS = {};
 
--- 1. The recipe, written and read back, for every kind of effect
+-- 1. The recipe, written and read back, for every kind of effect (a totem's alone inside a totem, further down)
 for _, kind in ipairs(R.KINDS) do
+	if ( kind.totemOnly ) then kind = R.KIND.totem; end
 	local recipe = R.New();
 	recipe.name = "Kind " .. kind.key;
 	recipe.effects = { R.NewEffect(kind.key) };
@@ -157,7 +158,7 @@ for _, info in ipairs(Mock.entries(OursForgeKind1)) do
 	end
 end
 local missing = {};
-for _, kind in ipairs(R.KINDS) do if ( not inGroups[kind.key] ) then table.insert(missing, kind.key); end end
+for _, kind in ipairs(R.KINDS) do if ( not inGroups[kind.key] and not kind.totemOnly ) then table.insert(missing, kind.key); end end
 CHECK(groups >= 4 and longest <= 12, "the kinds in " .. groups .. " groups, " .. longest .. " at the most");
 CHECK(#missing == 0, "every kind is in a group: " .. table.concat(missing, ", "));
 
@@ -166,8 +167,11 @@ local row1 = OursForgeFrame.effectRows[1];
 local FORM_RIGHT = 596;           -- (the form's part of the window ends there)
 local layouts = {};
 for _, kind in ipairs(R.KINDS) do
-	table.insert(layouts, { kind = kind });
-	if ( kind.aura ) then table.insert(layouts, { kind = kind, on = "group" }); end
+	-- (a totem's alone is not in the spell's menu)
+	if ( not kind.totemOnly ) then
+		table.insert(layouts, { kind = kind });
+		if ( kind.aura ) then table.insert(layouts, { kind = kind, on = "group" }); end
+	end
 end
 for _, layout in ipairs(layouts) do
 	local kind = layout.kind;
@@ -913,6 +917,28 @@ local evade = R.FromText('(spell (name "Evade") (target self) (dodge 50 (for 15)
 CHECK(evade and evade.effects[2].kind == "attacker_hit_ranged", "a spell with one is read: " .. R.Text(evade));
 table.insert(FORGE_TEXTS, R.Text(evade));
 
+-- totems (2026-10-23): what a totem does inside it, its health, a draw on spells, a summon once, recalling totems
+local inTotem, totemKinds = {}, 0;
+for _, group in ipairs(R.TOTEM_GROUPS) do
+	for _, key in ipairs(group.keys) do inTotem[key] = true; totemKinds = totemKinds + 1; end
+end
+CHECK(inTotem.spell_magnet and inTotem.summon and inTotem["break"], "a totem's menu has the draw on spells, a summon and breaking free");
+CHECK(not inTotem.tame and not inTotem.totem and not inTotem.shape_form and not inTotem.charge, "and no pets, totems, shapes or charges");
+local grounding = R.FromText('(spell (name "Grounding") (target self) (totem (element air) (for 45) (every 10) (radius 10) (spell-magnet)))');
+CHECK(grounding and grounding.effects[1].inner[1].kind == "spell_magnet", "a totem's draw on spells is read");
+table.insert(FORGE_TEXTS, R.Text(grounding));
+local elemental = R.FromText('(spell (name "Elemental") (target self) (totem (element fire) (for 120) (totem-health 3888) (summon 15438 1 (for 120))))');
+CHECK(elemental and elemental.effects[1].health == 3888 and elemental.effects[1].inner[1].kind == "summon", "a totem's health and summon are read");
+local elementalText = R.Text(elemental);
+CHECK(string.find(elementalText, "%(totem%-health 3888%)") and string.find(elementalText, "%(summon 15438 1 %(for 120%)%)"), "and written again: " .. elementalText);
+table.insert(FORGE_TEXTS, elementalText);
+local recall = R.FromText('(spell (name "Recall") (target self) (recall-totems 25))');
+CHECK(recall and recall.effects[1].kind == "recall_totems" and string.find(R.Text(recall), "%(recall%-totems 25%)"), "recalling totems: " .. R.Text(recall));
+table.insert(FORGE_TEXTS, R.Text(recall));
+local tremor = R.FromText('(spell (name "Tremor") (target self) (totem (element earth) (for 300) (every 3) (radius 10) (break fear charm sleep)))');
+CHECK(tremor and tremor.effects[1].inner[1].kind == "break", "a totem that frees from fear is read: " .. (tremor and tremor.effects[1].inner[1].kind or "nil"));
+table.insert(FORGE_TEXTS, R.Text(tremor));
+
 -- the changes of spells besides: an amount (of every effect, or one), the share of spell power, threat, resisting
 -- dispels, a proc's chance
 local empowered = R.FromText('(passive (name "Empowered") (modify fire spell-power 15) (modify all amount 20 (effect 2)) '
@@ -926,6 +952,16 @@ table.insert(FORGE_TEXTS, empoweredText);
 local surge = R.FromText('(spell (name "Surge") (target self) (modify all amount 50 (effect 1) (for 10)))');
 CHECK(surge and surge.effects[1].modEffect == 1 and string.find(R.Text(surge), "%(effect 1%)"), "a spell's change of an amount: " .. R.Text(surge));
 table.insert(FORGE_TEXTS, R.Text(surge));
+
+-- (2026-10-23) the chance to hit, the global cooldown, charges, a chain's targets, the share of spell power in percent
+local focus = R.FromText('(passive (name "Focus") (modify shadow hit 3) (modify all gcd -10) (modify buff charges 2) '
+	.. '(modify area targets 1) (modify over-time spell-power-percent 20))');
+CHECK(focus and #focus.effects == 5 and focus.effects[2].change == "gcd" and focus.effects[5].change == "spell-power-percent",
+	"the five new changes are read");
+local focusText = R.Text(focus);
+CHECK(string.find(focusText, "%(modify all gcd %-10%)") and string.find(focusText, "%(modify area targets 1%)")
+	and string.find(focusText, "spell%-power%-percent 20%)"), "and written again: " .. focusText);
+table.insert(FORGE_TEXTS, focusText);
 
 -- a channel's pulse: its damage as hits of their own every so often (Arcane Missiles), not as ticks
 local missiles = R.FromText('(spell (name "Missiles") (school arcane) (target enemy) (channel 5) (pulse 1) (missile 20) (damage 1800))');
